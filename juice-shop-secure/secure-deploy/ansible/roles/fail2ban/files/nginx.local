@@ -1,17 +1,20 @@
+# Bloc de protection contre les échecs d'authentification HTTP
+
 [nginx-http-auth]
 enabled = true
 filter  = nginx-http-auth
 port    = http,https
 logpath = /var/log/nginx/error.log
 maxretry = 3
-bantime = 600
+bantime = 600 # ban pdt 10min
 findtime = 300
 
+# Bloc de détection des bots agressifs (curl, nikto, etc.)
 [nginx-badbots]
 enabled  = true
 filter   = nginx-badbots
 port     = http,https
 logpath  = /var/log/nginx/access.log
 maxretry = 2
-bantime = 600
+bantime = 600 # ban pdt 10min
 findtime = 300
