@@ -61,7 +61,7 @@
 - name: 🔐 Restreindre permissions du socket Docker
   file:
     path: /var/run/docker.sock
-    mode: '0600'
+    mode: '0660'
     owner: root
     group: docker
   tags: docker
