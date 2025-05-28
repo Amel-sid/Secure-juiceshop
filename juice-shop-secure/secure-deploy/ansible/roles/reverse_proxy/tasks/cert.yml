@@ -1,17 +1,17 @@
 - name: Créer le dossier SSL
   file:
-    path: /etc/nginx/ssl
+    path: /etc/nginx/ssl #ds la vm - clé privé et certificats ssl 
     state: directory
     mode: '0755'
 
 - name: Générer certificat auto-signé s'il n'existe pas
   become: yes
-  command: >
-    openssl req -x509 -nodes -days 365
+  command: > # genre  certificat SSL auto-signé avec une nouvelle clé RSA 2048 bits valable 1 an.
+    openssl req -x509 -nodes -days 365 
     -newkey rsa:2048
     -keyout /etc/nginx/ssl/selfsigned.key
     -out /etc/nginx/ssl/selfsigned.crt
-    -subj "/C=FR/ST=Local/L=Local/O=JuiceShop/CN=localhost"
+    -subj "/C=FR/ST=Local/L=Local/O=JuiceShop/CN=localhost" 
   args:
     creates: /etc/nginx/ssl/selfsigned.crt
 
