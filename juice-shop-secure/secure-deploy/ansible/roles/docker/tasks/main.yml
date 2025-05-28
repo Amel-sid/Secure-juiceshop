@@ -2,8 +2,10 @@
 # Conformité : A.12.6.1 (gestion des vulnérabilités logicielles)
 - name: 🛑 Créer le groupe docker (A.9.2.3 - Moindre privilège)
   group:
-    name: docker
+    name: docker-admin
     state: present
+
+
 - name: 📦 Installer dépendances Docker
   apt:
     name: 
@@ -63,7 +65,20 @@
     path: /var/run/docker.sock
     mode: '0660'
     owner: root
-    group: docker
+    group: docker-admin
+  when: ansible_facts.services['docker'].status == "running" # Exécute cette tâche seulement si Docker est déjà en train de tourner.
+
+
+#Isoler les utilisateurs à l’intérieur des conteneurs des utilisateurs sur l’hôte.
+- name: 💡 Activer userns-remap dans Docker
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "userns-remap": "default"
+      }
+  notify: restart docker
+
   tags: docker
 
 - name: 🚫 Désactiver IP forwarding (A.13.1.1 - Contrôles réseau)
