@@ -1,16 +1,18 @@
-# 📦 Installer les paquets nécessaires pour gérer les dépôts HTTPS
-# Conformité : A.12.6.1 (gestion des vulnérabilités logicielles)
+
 - name: 🛑 Créer le groupe docker (A.9.2.3 - Moindre privilège)
   group:
     name: docker-admin
     state: present
 
+# 📦 Installer les paquets nécessaires pour gérer les dépôts HTTPS
+# Ajoute la clé GPG officielle pour que le système fasse confiance aux paquets Docker
 
+# Conformité : A.12.6.1 (gestion des vulnérabilités logicielles)
 - name: 📦 Installer dépendances Docker
   apt:
     name: 
-      - apt-transport-https     # pour gérer les dépôts HTTPS
-      - ca-certificates         # certificats SSL pour vérification des dépôts
+      - apt-transport-https     # Pour que apt puisse télécharger depuis un dépôt en HTTPS
+      - ca-certificates         # Vérifie que les certificats SSL des dépôts sont valides
       - curl                    # utilisé pour récupérer la clé GPG
       - software-properties-common # gestion des dépôts
     state: present
@@ -18,6 +20,7 @@
   tags: docker
 
 # 🔐 Ajout de la clé GPG officielle de Docker
+# Ajoute la clé GPG officielle pour que le système fasse confiance aux paquets Docker
 # Conformité : A.14.2.4 (intégrité du code source)
 - name: 🔐 Ajouter clé GPG Docker
   apt_key:
@@ -59,7 +62,7 @@
   tags: docker
 
 
-# 🔐 Restreindre les droits sur le socket Docker (A.9.2.3 – Moindre privilège)
+# 🔐 Restreindre les droits sur le socket Docker a root et docker-admin (A.9.2.3 – Moindre privilège)
 - name: 🔐 Restreindre permissions du socket Docker
   file:
     path: /var/run/docker.sock
