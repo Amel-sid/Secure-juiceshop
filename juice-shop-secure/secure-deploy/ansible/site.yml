@@ -8,7 +8,6 @@
     - docker
     - juice
     - reverse_proxy
-    - nginx
     - hardening
     - tools
     - fail2ban
