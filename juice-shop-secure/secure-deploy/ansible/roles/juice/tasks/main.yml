@@ -19,7 +19,9 @@
     - /opt/juice-shop/csaf
   become: yes
 
-- name: 📄 Créer provider-metadata.json
+# Prépare les dossiers  pour exposer les bulletins de sécurité CSAF (.well-known/csaf)
+# Simule un éditeur logiciel conforme (divulgation responsable de vulnérabilités)
+- name: 📄 Créer provider-metadata.json (A.16.1.1	-Responsabilités en matière de gestion des incidents de sécurité)
   copy:
     content: '{
       "metadata": {
@@ -33,13 +35,6 @@
     mode: '0644'
   become: yes
 
-- name: 🔐 Donner droits UID 1001 à /opt/juice-shop
-  file:
-    path: /opt/juice-shop
-    owner: 1001
-    group: 1001
-    recurse: yes
-  become: yes
 
 - name: ⛓ Télécharger image Juice Shop (version stable)
   docker_image:
@@ -58,11 +53,11 @@
 - name: 🚀 Lancer conteneur Juice Shop
   docker_container:
     name: juice-shop
-    image: bkimminich/juice-shop:v15.1.0
+    image: bkimminich/juice-shop:v15.1.0 #On télécharge et lance l’application Juice Shop dans sa version 15.1.0, depuis Docker Hub.
     state: started
     restart_policy: always
     published_ports:
-      - "3000:3000"
+      - "3000:3000" #Expose le port 3000 de l’app vers le port 3000 de la VM
     user: "1001"
     networks:
       - name: juice_net
