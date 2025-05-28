@@ -1,0 +1,77 @@
+server {
+    listen 80;
+    server_name localhost;
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name localhost;
+
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # En-têtes de sécurité HTTP
+    add_header Strict-Transport-Security "max-age=63072000; includeSubdomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self';" always;
+    add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
+
+    location / {
+        proxy_pass http://juice-shop:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Accept-Encoding "";
+
+        # Correction spécifique pour Juice Shop
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_redirect off;
+        proxy_buffering off;
+        
+        # Réécriture des chemins de ressources
+        sub_filter_once off;
+        sub_filter_types text/html text/css application/javascript;
+        sub_filter '="/' '="/';
+        sub_filter "='/static" "='/static";
+        sub_filter 'url(/' 'url(/';
+        sub_filter 'url("/' 'url("/';
+        sub_filter 'url(../' 'url(../';
+
+        # Gestion des timeouts
+        proxy_connect_timeout 90;
+        proxy_send_timeout 90;
+        proxy_read_timeout 90;
+        send_timeout 90;
+    }
+
+    # Cache pour les ressources statiques
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        proxy_pass http://juice-shop:3000;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # Bloque l'accès aux fichiers cachés
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+}

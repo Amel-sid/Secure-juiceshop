@@ -1,0 +1,74 @@
+# 📦 Installer les paquets nécessaires pour gérer les dépôts HTTPS
+# Conformité : A.12.6.1 (gestion des vulnérabilités logicielles)
+- name: 🛑 Créer le groupe docker (A.9.2.3 - Moindre privilège)
+  group:
+    name: docker
+    state: present
+- name: 📦 Installer dépendances Docker
+  apt:
+    name: 
+      - apt-transport-https     # pour gérer les dépôts HTTPS
+      - ca-certificates         # certificats SSL pour vérification des dépôts
+      - curl                    # utilisé pour récupérer la clé GPG
+      - software-properties-common # gestion des dépôts
+    state: present
+    update_cache: yes
+  tags: docker
+
+# 🔐 Ajout de la clé GPG officielle de Docker
+# Conformité : A.14.2.4 (intégrité du code source)
+- name: 🔐 Ajouter clé GPG Docker
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  tags: docker
+
+
+# ➕ Ajout du dépôt Docker officiel
+# Permet d’installer les dernières versions stables signées
+- name: ➕ Ajouter dépôt Docker stable
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+  tags: docker
+
+
+# 🚀 Installation de Docker CE (Community Edition)
+# Conformité : A.12.5.1 (installation contrôlée de logiciels)
+- name: 🚀 Installer Docker
+  apt:
+    name: 
+      - docker-ce              # moteur Docker
+      - docker-ce-cli          # CLI Docker
+      - containerd.io          # runtime conteneurs
+    state: latest
+    update_cache: yes
+  tags: docker
+
+
+# 🔄 Activer Docker au démarrage et le lancer
+# Conformité : A.12.1.2 (configuration sécurisée des systèmes)
+- name: 🔄 Activer et démarrer Docker
+  service:
+    name: docker
+    state: started
+    enabled: true
+  tags: docker
+
+
+# 🔐 Restreindre les droits sur le socket Docker (A.9.2.3 – Moindre privilège)
+- name: 🔐 Restreindre permissions du socket Docker
+  file:
+    path: /var/run/docker.sock
+    mode: '0600'
+    owner: root
+    group: docker
+  tags: docker
+
+- name: 🚫 Désactiver IP forwarding (A.13.1.1 - Contrôles réseau)
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 0
+    state: present
+    reload: yes

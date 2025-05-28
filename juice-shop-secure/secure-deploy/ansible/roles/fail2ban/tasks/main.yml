@@ -1,0 +1,45 @@
+# 📦 Installer Fail2ban
+- name: 📦 Installer Fail2ban
+  apt:
+    name: fail2ban
+    state: present
+    update_cache: yes
+
+# ⚙️ Définir la config SSH
+- name: ⚙️ Configurer Fail2ban pour SSH
+  copy:
+    dest: /etc/fail2ban/jail.d/ssh.local
+    content: |
+      [sshd]
+      enabled = true
+      port = ssh
+      logpath = %(sshd_log)s
+      maxretry = 3
+      bantime = 600
+      findtime = 300
+
+# 🔁 Redémarrer le service Fail2ban
+- name: 🔁 Redémarrer Fail2ban
+  service:
+    name: fail2ban
+    state: restarted
+    enabled: true
+
+# 🧪 Vérifier que Fail2ban a bien activé la jail SSH
+- name: 🧪 Vérifier la jail SSH dans Fail2ban
+  command: fail2ban-client status sshd
+  register: fail2ban_status
+  failed_when: "'No jail' in fail2ban_status.stdout"
+  changed_when: false
+
+- name: 🧾 Afficher l’état de la jail SSH
+  debug:
+    var: fail2ban_status.stdout
+
+
+# 🛡 Ajouter la jail Nginx pour fail2ban
+- name: 🔒 Jail Nginx (badbots + auth)
+  copy:
+    src: nginx.local
+    dest: /etc/fail2ban/jail.d/nginx.local
+  notify: Redémarrer Fail2ban

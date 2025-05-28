@@ -1,0 +1,50 @@
+- name: 📦 Télécharger Trivy
+  get_url:
+    url: https://github.com/aquasecurity/trivy/releases/download/v0.51.1/trivy_0.51.1_Linux-64bit.tar.gz
+    dest: /tmp/trivy.tar.gz
+    mode: '0644'
+  register: trivy_download
+  retries: 3
+  delay: 5
+  until: trivy_download is succeeded
+  become: false
+
+# Vérifier que le fichier existe
+- name:  Vérifier existence du fichier
+  stat:
+    path: /tmp/trivy.tar.gz
+  register: trivy_file
+
+# Extraire seulement si le fichier est là
+- name:  Extraire Trivy
+  shell: tar -xzf /tmp/trivy.tar.gz -C /tmp/
+  args:
+    executable: /bin/bash
+  when: trivy_file.stat.exists
+
+- name: 📂 Déplacer Trivy dans /usr/local/bin
+  copy:
+    src: "/tmp/trivy"
+    dest: "/usr/local/bin/trivy"
+    mode: '0755'
+    remote_src: yes
+    
+- name: ✅ Vérifier installation de Trivy
+  command: trivy --version
+  register: trivy_version
+  changed_when: false
+
+- name: 🖨️ Afficher version Trivy
+  debug:
+    var: trivy_version.stdout
+
+
+- name: 🔍 Scanner Juice Shop avec Trivy (et écrire le rapport)
+  shell: |
+    echo ">>> Lancement Trivy" > /home/vagrant/trivy-report.txt
+    /usr/local/bin/trivy image --severity HIGH,CRITICAL --format table --no-progress --ignore-unfixed bkimminich/juice-shop >> /home/vagrant/trivy-report.txt 2>&1
+  args:
+    executable: /bin/bash
+  changed_when: false
+  become: yes
+

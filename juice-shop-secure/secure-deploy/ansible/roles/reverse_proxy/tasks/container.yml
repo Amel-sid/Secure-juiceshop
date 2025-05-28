@@ -1,0 +1,21 @@
+- name: Supprimer l’ancien conteneur juice-proxy s’il existe
+  docker_container:
+    name: juice-proxy
+    state: absent
+    force_kill: true
+
+- name: Lancer le conteneur Nginx en HTTPS proxy
+  docker_container:
+    name: juice-proxy
+    image: nginx
+    state: started
+    restart_policy: always
+    recreate: true  # ✅
+    published_ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/etc/nginx/ssl:/etc/nginx/ssl:ro"
+      - "/etc/nginx/conf.d:/etc/nginx/conf.d:ro"
+    networks:
+      - name: juice_net

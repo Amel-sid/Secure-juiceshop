@@ -1,0 +1,75 @@
+---
+# ansible/roles/juice/tasks/main.yml
+
+- name: 💥 Supprimer ancienne installation (si elle existe)
+  file:
+    path: /opt/juice-shop
+    state: absent
+  become: yes
+
+- name: 🏗️ Créer structure répertoires Juice Shop
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: 1001
+    group: 1001
+  loop:
+    - /opt/juice-shop
+    - /opt/juice-shop/csaf
+  become: yes
+
+- name: 📄 Créer provider-metadata.json
+  copy:
+    content: '{
+      "metadata": {
+        "publisher": "Juice Shop Security",
+        "namespace": "https://juice-sh.op"
+      }
+    }'
+    dest: /opt/juice-shop/csaf/provider-metadata.json
+    owner: 1001
+    group: 1001
+    mode: '0644'
+  become: yes
+
+- name: 🔐 Donner droits UID 1001 à /opt/juice-shop
+  file:
+    path: /opt/juice-shop
+    owner: 1001
+    group: 1001
+    recurse: yes
+  become: yes
+
+- name: ⛓ Télécharger image Juice Shop (version stable)
+  docker_image:
+    name: bkimminich/juice-shop
+    tag: v15.1.0
+    source: pull
+  become: yes
+
+- name: 🌐 Créer réseau Docker privé
+  docker_network:
+    name: juice_net
+    driver: bridge
+    state: present
+  become: yes
+
+- name: 🚀 Lancer conteneur Juice Shop
+  docker_container:
+    name: juice-shop
+    image: bkimminich/juice-shop:v15.1.0
+    state: started
+    restart_policy: always
+    published_ports:
+      - "3000:3000"
+    user: "1001"
+    networks:
+      - name: juice_net
+    volumes:
+      - "/opt/juice-shop/csaf:/juice-shop/.well-known/csaf:ro"
+    env:
+      NODE_ENV: production
+      CSAF_PUBLISHER_NAME: "Juice Shop"
+  become: yes
+  tags: juice

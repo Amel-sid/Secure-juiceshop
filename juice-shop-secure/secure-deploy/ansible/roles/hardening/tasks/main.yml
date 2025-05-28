@@ -1,0 +1,33 @@
+- name: 🔒 Autoriser le port 3000 (Juice Shop)
+  ufw:
+    rule: allow
+    port: 3000
+    proto: tcp
+
+- name: 🔒 Autoriser OpenSSH
+  ufw:
+    rule: allow
+    name: OpenSSH
+    
+- name: 🚫 Interdire le login root via SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+
+- name: 🔐 Désactiver l’authentification par mot de passe SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+
+- name: 🔁 Redémarrer SSH pour appliquer les changements
+  systemd:
+    name: ssh
+    state: restarted
+
+- name: 🔐 Activer UFW avec politique restrictive
+  ufw:
+    state: enabled
+    policy: deny
+    logging: on

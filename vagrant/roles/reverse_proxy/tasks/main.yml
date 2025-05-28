@@ -1,0 +1,34 @@
+- name: Installer Nginx et OpenSSL
+  apt:
+    name:
+      - nginx
+      - openssl
+    state: present
+    update_cache: yes
+
+- name: Créer le dossier SSL
+  file:
+    path: /etc/nginx/ssl
+    state: directory
+    mode: '0755'
+
+- name: Générer un certificat auto-signé
+  command: >
+    openssl req -x509 -nodes -days 365
+    -newkey rsa:2048
+    -keyout /etc/nginx/ssl/selfsigned.key
+    -out /etc/nginx/ssl/selfsigned.crt
+    -subj "/C=FR/ST=Local/L=Local/O=JuiceShop/CN=localhost"
+  creates: /etc/nginx/ssl/selfsigned.crt
+
+- name: Déployer la config Nginx
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/default
+    mode: '0644'
+
+- name: Redémarrer Nginx
+  service:
+    name: nginx
+    state: restarted
+    enabled: yes
