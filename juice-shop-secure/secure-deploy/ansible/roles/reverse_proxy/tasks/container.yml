@@ -15,7 +15,8 @@
       - "80:80"
       - "443:443"
     volumes:
-      - "/etc/nginx/ssl:/etc/nginx/ssl:ro"
-      - "/etc/nginx/conf.d:/etc/nginx/conf.d:ro"
+      - "/etc/nginx/ssl:/etc/nginx/ssl:ro" # Partage les certificats SSL générés sur l’hôte avec Nginx dans le conteneur.active le https
+      - "/etc/nginx/conf.d:/etc/nginx/conf.d:ro" # Permet de gérer la conf depuis l’host sans recréer l’image Nginx.
+
     networks:
       - name: juice_net
