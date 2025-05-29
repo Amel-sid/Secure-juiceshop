@@ -65,3 +65,9 @@ config/*.yml
 # System Files
 .DS_Store
 terraform.tfvars
+terraform.tfstate
+terraform.tfstate.backup
+crash.log
+override.tf
+override.tf.json
+.terraform.lock.hcl
