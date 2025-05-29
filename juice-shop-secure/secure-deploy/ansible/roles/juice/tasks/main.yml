@@ -50,21 +50,34 @@
     state: present
   become: yes
 
-- name: 🚀 Lancer conteneur Juice Shop
+- name: 🚀 Lancer conteneur Juice Shop (durci)
   docker_container:
     name: juice-shop
-    image: bkimminich/juice-shop:v15.1.0 #On télécharge et lance l’application Juice Shop dans sa version 15.1.0, depuis Docker Hub.
+    image: bkimminich/juice-shop:v15.1.0
+    security_opts:
+      - no-new-privileges
+      - seccomp=default
+      - apparmor=docker-default
     state: started
     restart_policy: always
     published_ports:
-      - "3000:3000" #Expose le port 3000 de l’app vers le port 3000 de la VM
+      - "3000:3000"
     user: "1001"
     networks:
       - name: juice_net
     volumes:
       - "/opt/juice-shop/csaf:/juice-shop/.well-known/csaf:ro"
+    read_only: true
     env:
       NODE_ENV: production
       CSAF_PUBLISHER_NAME: "Juice Shop"
+    capabilities:
+      drop:
+        - ALL
+    security_opts:
+      - no-new-privileges
+      - seccomp=default
+      - apparmor=docker-default
   become: yes
   tags: juice
+
