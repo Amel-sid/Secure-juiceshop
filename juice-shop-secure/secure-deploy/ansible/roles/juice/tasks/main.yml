@@ -74,10 +74,6 @@
     capabilities:
       drop:
         - ALL
-    security_opts:
-      - no-new-privileges
-      - seccomp=default
-      - apparmor=docker-default
   become: yes
   tags: juice
 
