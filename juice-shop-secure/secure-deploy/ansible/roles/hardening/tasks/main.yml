@@ -1,49 +1,138 @@
-- name: 🔒 Autoriser le port 3000 (Juice Shop)
-  ufw:
-    rule: allow
-    port: 3000
-    proto: tcp
+---
+# roles/hardening/tasks/main.yml
 
-- name: 🔒 Autoriser OpenSSH
-  ufw:
-    rule: allow
-    name: OpenSSH
-    
-- name: 🚫 Interdire le login root via SSH
-  lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?PermitRootLogin'
-    line: 'PermitRootLogin no'
+- name: 🔒 Configurer le pare-feu avec UFW (ISO A.13.1.1)
+  block:
+    - name: ✨ Activer UFW avec politique restrictive
+      ufw:
+        state: enabled
+        policy: deny
+        logging: medium
 
-- name: 🔐 Désactiver l’authentification par mot de passe SSH
-  lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?PasswordAuthentication'
-    line: 'PasswordAuthentication no'
+    - name: 🔒 Autoriser SSH depuis l'IP admin
+      ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+        src: "{{ admin_ip }}/32"
 
-- name: 🔁 Redémarrer SSH pour appliquer les changements
-  systemd:
-    name: ssh
-    state: restarted
+    - name: 🚫 Bloquer le port 3000 direct (Juice Shop via reverse proxy seulement)
+      ufw:
+        rule: deny
+        port: 3000
+        proto: tcp
 
-- name: 🔐 Activer UFW avec politique restrictive
-  ufw:
-    state: enabled
-    policy: deny
-    logging: on
+    - name: 🌐 Autoriser HTTPS
+      ufw:
+        rule: allow
+        port: 443
+        proto: tcp
+  tags: ["firewall"]
 
-- name: 📦 Installer AppArmor
+- name: 🔐 Durcissement SSH (ISO A.9.4.2)
+  block:
+    - name: 🔧 Changer le port SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port'
+        line: 'Port {{ ssh_port }}'
+        validate: '/usr/sbin/sshd -t -f %s'
+
+    - name: 🔑 Forcer l’authentification par clé uniquement
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AuthenticationMethods'
+        line: 'AuthenticationMethods publickey'
+        validate: '/usr/sbin/sshd -t -f %s'
+
+    - name: ⏱ Limiter les tentatives de connexion
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?MaxAuthTries'
+        line: 'MaxAuthTries 3'
+        validate: '/usr/sbin/sshd -t -f %s'
+
+    - name: ⛔ Désactiver les options dangereuses
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?{{ item.key }}'
+        line: '{{ item.value }}'
+        validate: '/usr/sbin/sshd -t -f %s'
+      loop:
+        - { key: 'X11Forwarding', value: 'X11Forwarding no' }
+        - { key: 'AllowTcpForwarding', value: 'AllowTcpForwarding no' }
+        - { key: 'PermitTunnel', value: 'PermitTunnel no' }
+
+    - name: 🔄 Redémarrer SSH si nécessaire
+      systemd:
+        name: ssh
+        state: restarted
+  tags: ["ssh"]
+
+- name: 🛡 Installer et configurer Fail2Ban (anti-brute force)
+  block:
+    - name: 📦 Installer Fail2Ban
+      apt:
+        name: fail2ban
+        state: present
+        update_cache: yes
+
+    - name: 🔧 Configurer jail pour SSH
+      copy:
+        dest: /etc/fail2ban/jail.d/sshd.conf
+        content: |
+          [sshd]
+          enabled = true
+          port = {{ ssh_port }}
+          filter = sshd
+          logpath = /var/log/auth.log
+          maxretry = 3
+          bantime = 1h
+      notify: restart fail2ban
+  tags: ["fail2ban"]
+
+- name: 🛡 Installer et activer AppArmor
+  block:
+    - name: 📦 Installer AppArmor
+      apt:
+        name:
+          - apparmor
+          - apparmor-utils
+          - apparmor-profiles
+        state: present
+        update_cache: yes
+
+    - name: 🔄 Activer AppArmor
+      service:
+        name: apparmor
+        state: started
+        enabled: true
+
+    - name: 🔒 Appliquer profil Docker (minimal demo)
+      copy:
+        dest: /etc/apparmor.d/docker
+        content: |
+          #include <tunables/global>
+          profile docker-default flags=(attach_disconnected) {
+            # basic restrictions
+            deny network raw,
+            deny mount,
+          }
+      notify: reload apparmor
+  tags: ["apparmor"]
+
+- name: ♻️ Activer mises à jour automatiques (ISO A.12.6.1)
   apt:
-    name:
-      - apparmor
-      - apparmor-utils
+    name: unattended-upgrades
     state: present
     update_cache: yes
-  become: yes
+  tags: ["updates"]
 
-  - name: 🔄 Activer AppArmor
-  service:
-    name: apparmor
-    state: started
-    enabled: true
-  become: yes
+# Handlers (dans handlers/main.yml)
+# - name: restart fail2ban
+#   service:
+#     name: fail2ban
+#     state: restarted
+#
+# - name: reload apparmor
+#   command: apparmor_parser -r /etc/apparmor.d/docker
