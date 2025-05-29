@@ -31,3 +31,19 @@
     state: enabled
     policy: deny
     logging: on
+
+- name: 📦 Installer AppArmor
+  apt:
+    name:
+      - apparmor
+      - apparmor-utils
+    state: present
+    update_cache: yes
+  become: yes
+
+  - name: 🔄 Activer AppArmor
+  service:
+    name: apparmor
+    state: started
+    enabled: true
+  become: yes
