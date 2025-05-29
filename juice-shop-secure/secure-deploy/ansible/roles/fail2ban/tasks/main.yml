@@ -18,6 +18,8 @@
       bantime = 600
       findtime = 300
 
+
+
 # 🔁 Redémarrer le service Fail2ban
 - name: 🔁 Redémarrer Fail2ban
   service:
