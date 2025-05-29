@@ -1,0 +1,1 @@
+ssh_key_path = "../.vagrant/machines/default/virtualbox/private_key"
