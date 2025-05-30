@@ -4,18 +4,50 @@ Ce dépôt contient deux livrables principaux correspondant aux attentes du test
 
 ---
 
-## 1️⃣ Sécurisation de l’infrastructure (Juice Shop)
+## 1️⃣ Sécurisation de l'infrastructure (Juice Shop)
 
-* [Preuves d’exécution : déploiement, vérifications](./DEPLOYMENT_PROOF.md)
-* [Mesures de sécurité appliquées : hardening, conformité](./SECURITY_MEASURES.md)
+* [📋 Guide de déploiement complet avec preuves](./juice-shop-secure/docs/paste.txt)
+* [🔒 Infrastructure sécurisée avec Terraform](./juice-shop-secure/terraform/)
+* [⚙️ Automatisation Ansible](./juice-shop-secure/secure-deploy/)
+* [✅ Script de validation automatique](./validate.sh)
 
 ---
 
 ## 2️⃣ Réponse à un incident simulé
 
-* [Plan d’intervention : identification, endiguement, éradication, récupération](./2-Incident-Response/Plan-Intervention-Securite.md)
-* [Étude de cas technique : compromission du compte admin sur Juice Shop](./2-Incident-Response/Cas-Application-JuiceShop.md)
+* [🚨 Plan d'intervention sécurité](./juice-shop-secure/2-Incident-Response/)
+* [🔍 Procédures de réponse à incident](./juice-shop-secure/2-Incident-Response/)
 
 ---
 
-Chaque partie peut être lue indépendamment, mais forme un ensemble cohérent sur l’approche sécurité proposée.
+## 🚀 Démarrage rapide
+
+```bash
+# 1. Déployer l'infrastructure sécurisée
+cd vagrant && vagrant up
+cd ../juice-shop-secure/terraform && terraform apply
+
+# 2. Valider le déploiement
+./validate.sh
+
+# 3. Accéder à l'application
+# HTTPS sécurisé : https://localhost:4443
+# SSH sécurisé : vagrant ssh
+```
+
+---
+
+## 📚 Structure du projet
+
+```
+├── vagrant/                    # Configuration VM Ubuntu 24.04
+├── juice-shop-secure/         # Infrastructure sécurisée
+│   ├── terraform/             # Provisioning avec sécurité ISO 27001
+│   ├── secure-deploy/         # Ansible automation & hardening
+│   ├── docs/                  # Documentation avec captures
+│   └── 2-Incident-Response/   # Procédures d'incident
+├── validate.sh                # Script de validation sécurité
+└── README.md                  # Ce fichier
+```
+
+Chaque partie peut être lue indépendamment, mais forme un ensemble cohérent sur l'approche sécurité proposée.
