@@ -1,11 +1,8 @@
-- name: Créer le dossier de conf Nginx
-  file:
-    path: /etc/nginx/conf.d
-    state: directory
-    mode: '0755'
-
-- name: Déployer la config Nginx HTTPS
+---
+# 📄 Utiliser VOTRE template existant
+- name: 📄 Déployer template nginx existant
   template:
     src: default.conf.j2
-    dest: /etc/nginx/conf.d/default.conf
+    dest: /tmp/nginx-juice.conf
     mode: '0644'
+  become: yes

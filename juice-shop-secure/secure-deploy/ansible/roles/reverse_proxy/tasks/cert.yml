@@ -1,18 +1,31 @@
-- name: Créer le dossier SSL
+---
+# 🔐 Créer répertoire SSL
+- name: 🔐 Créer répertoire SSL
   file:
-    path: /etc/nginx/ssl #ds la vm - clé privé et certificats ssl 
+    path: "{{ nginx_ssl_path }}"
     state: directory
     mode: '0755'
-
-- name: Générer certificat auto-signé s'il n'existe pas
   become: yes
-  command: > # genre  certificat SSL auto-signé avec une nouvelle clé RSA 2048 bits valable 1 an.
-    openssl req -x509 -nodes -days 365 
-    -newkey rsa:2048
-    -keyout /etc/nginx/ssl/selfsigned.key
-    -out /etc/nginx/ssl/selfsigned.crt
-    -subj "/C=FR/ST=Local/L=Local/O=JuiceShop/CN=localhost" 
+
+# 🔐 Générer certificats auto-signés
+- name: 🔐 Générer certificats SSL auto-signés
+  shell: |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout {{ nginx_ssl_path }}/selfsigned.key \
+    -out {{ nginx_ssl_path }}/selfsigned.crt \
+    -subj "/C=FR/ST=State/L=City/O=JuiceShop/CN=localhost"
   args:
-    creates: /etc/nginx/ssl/selfsigned.crt
+    creates: "{{ nginx_ssl_path }}/selfsigned.crt"
+  become: yes
 
-
+# 🔒 Sécuriser les permissions
+- name: 🔒 Sécuriser permissions certificats
+  file:
+    path: "{{ item }}"
+    mode: '0600'
+    owner: root
+    group: root
+  loop:
+    - "{{ nginx_ssl_path }}/selfsigned.key"
+    - "{{ nginx_ssl_path }}/selfsigned.crt"
+  become: yes

@@ -1,7 +1,6 @@
 ---
-# roles/hardening/tasks/main.yml
-
-- name: 🔒 Configurer le pare-feu avec UFW (ISO A.13.1.1)
+# ===================== SECTION 1: CONFIGURATION RÉSEAU =====================
+- name: 🔒 CONFIGURATION PAREFEUX (ISO 27001 A.13.1.1)
   block:
     - name: ✨ Activer UFW avec politique restrictive
       ufw:
@@ -9,14 +8,22 @@
         policy: deny
         logging: medium
 
-    - name: 🔒 Autoriser SSH depuis l'IP admin
+    # COMMENTÉ - Cause problème SSH Vagrant
+    # - name: 🔒 Autoriser SSH depuis IP admin
+    #   ufw:
+    #     rule: allow
+    #     port: "{{ ssh_port }}"
+    #     proto: tcp
+    #     src: "{{ admin_ip }}/32"
+
+    # AJOUTÉ - Autoriser SSH pour Vagrant
+    - name: 🔒 Autoriser SSH Vagrant
       ufw:
         rule: allow
-        port: "{{ ssh_port }}"
+        port: 22
         proto: tcp
-        src: "{{ admin_ip }}/32"
 
-    - name: 🚫 Bloquer le port 3000 direct (Juice Shop via reverse proxy seulement)
+    - name: 🚫 Bloquer accès direct à Juice Shop
       ufw:
         rule: deny
         port: 3000
@@ -27,32 +34,42 @@
         rule: allow
         port: 443
         proto: tcp
+
+    - name: 🌐 Autoriser HTTP
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
   tags: ["firewall"]
 
-- name: 🔐 Durcissement SSH (ISO A.9.4.2)
+# ===================== SECTION 2: DURCISSEMENT SSH =====================
+- name: 🔐 DURCISSEMENT SSH (ISO 27001 A.9.4.2)
   block:
-    - name: 🔧 Changer le port SSH
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?Port'
-        line: 'Port {{ ssh_port }}'
-        validate: '/usr/sbin/sshd -t -f %s'
+    # COMMENTÉ - Cause problème port SSH
+    # - name: 🔧 Changer port SSH
+    #   lineinfile:
+    #     path: /etc/ssh/sshd_config
+    #     regexp: '^#?Port'
+    #     line: 'Port {{ ssh_port }}'
+    #     backup: yes
+    #     validate: '/usr/sbin/sshd -t -f %s'
 
-    - name: 🔑 Forcer l’authentification par clé uniquement
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?AuthenticationMethods'
-        line: 'AuthenticationMethods publickey'
-        validate: '/usr/sbin/sshd -t -f %s'
+    # COMMENTÉ - Cause problème authentification Vagrant
+    # - name: 🔑 Forcer authentification par clé
+    #   lineinfile:
+    #     path: /etc/ssh/sshd_config
+    #     regexp: '^#?AuthenticationMethods'
+    #     line: 'AuthenticationMethods publickey'
+    #     validate: '/usr/sbin/sshd -t -f %s'
 
-    - name: ⏱ Limiter les tentatives de connexion
+    - name: ⏱ Limiter tentatives de connexion
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^#?MaxAuthTries'
         line: 'MaxAuthTries 3'
         validate: '/usr/sbin/sshd -t -f %s'
 
-    - name: ⛔ Désactiver les options dangereuses
+    - name: ⛔ Désactiver options dangereuses
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^#?{{ item.key }}'
@@ -62,77 +79,85 @@
         - { key: 'X11Forwarding', value: 'X11Forwarding no' }
         - { key: 'AllowTcpForwarding', value: 'AllowTcpForwarding no' }
         - { key: 'PermitTunnel', value: 'PermitTunnel no' }
+        - { key: 'ClientAliveInterval', value: 'ClientAliveInterval 300' }
+        - { key: 'ClientAliveCountMax', value: 'ClientAliveCountMax 2' }
 
-    - name: 🔄 Redémarrer SSH si nécessaire
+    - name: 🔄 Redémarrer SSH
       systemd:
         name: ssh
         state: restarted
   tags: ["ssh"]
 
-- name: 🛡 Installer et configurer Fail2Ban (anti-brute force)
+# ===================== SECTION 3: OUTILS DE SÉCURITÉ =====================
+- name: 🛡️ OUTILS DE PROTECTION (ISO 27001 A.12.6)
   block:
-    - name: 📦 Installer Fail2Ban
+    # ----- SOUS-SECTION: Fail2Ban -----
+    - name: 🛡 Installer et configurer Fail2Ban
+      block:
+        - name: 📦 Installer Fail2Ban
+          apt:
+            name: fail2ban
+            state: present
+
+        - name: 🔧 Configurer jail SSH
+          copy:
+            dest: /etc/fail2ban/jail.d/sshd.conf
+            content: |
+              [sshd]
+              enabled = true
+              port = 22
+              filter = sshd
+              logpath = /var/log/auth.log
+              maxretry = 3
+              bantime = 1h
+              findtime = 10m
+              ignoreip = 127.0.0.1/8 10.0.0.0/8 192.168.0.0/16
+
+        - name: 🔧 Configurer jail Nginx
+          copy:
+            dest: /etc/fail2ban/jail.d/nginx.conf
+            content: |
+              [nginx-http-auth]
+              enabled = true
+              port = http,https
+              logpath = /var/log/nginx/error.log
+              maxretry = 3
+          notify: restart fail2ban
+      
+    # ----- SOUS-SECTION: AppArmor -----
+    - name: 🛡 Installer et activer AppArmor
+      block:
+        - name: 📦 Installer AppArmor
+          apt:
+            name:
+              - apparmor
+              - apparmor-utils
+              - apparmor-profiles
+            state: present
+            update_cache: no
+
+        - name: 🔄 Activer AppArmor
+          service:
+            name: apparmor
+            state: started
+            enabled: true
+
+        - name: 🔒 Appliquer profil Docker
+          copy:
+            dest: /etc/apparmor.d/docker
+            content: |
+              #include <tunables/global>
+              profile docker flags=(attach_disconnected) {
+                deny /etc/passwd rw,
+                deny /etc/shadow rw,
+                deny /root/** rw,
+                capability dac_override,
+              }
+          notify: reload apparmor
+      
+    # ----- SOUS-SECTION: Mises à jour -----
+    - name: ♻️ Activer mises à jour automatiques
       apt:
-        name: fail2ban
+        name: unattended-upgrades
         state: present
-        update_cache: yes
-
-    - name: 🔧 Configurer jail pour SSH
-      copy:
-        dest: /etc/fail2ban/jail.d/sshd.conf
-        content: |
-          [sshd]
-          enabled = true
-          port = {{ ssh_port }}
-          filter = sshd
-          logpath = /var/log/auth.log
-          maxretry = 3
-          bantime = 1h
-      notify: restart fail2ban
-  tags: ["fail2ban"]
-
-- name: 🛡 Installer et activer AppArmor
-  block:
-    - name: 📦 Installer AppArmor
-      apt:
-        name:
-          - apparmor
-          - apparmor-utils
-          - apparmor-profiles
-        state: present
-        update_cache: yes
-
-    - name: 🔄 Activer AppArmor
-      service:
-        name: apparmor
-        state: started
-        enabled: true
-
-    - name: 🔒 Appliquer profil Docker (minimal demo)
-      copy:
-        dest: /etc/apparmor.d/docker
-        content: |
-          #include <tunables/global>
-          profile docker-default flags=(attach_disconnected) {
-            # basic restrictions
-            deny network raw,
-            deny mount,
-          }
-      notify: reload apparmor
-  tags: ["apparmor"]
-
-- name: ♻️ Activer mises à jour automatiques (ISO A.12.6.1)
-  apt:
-    name: unattended-upgrades
-    state: present
-    update_cache: yes
-  tags: ["updates"]
-
-# Handlers (dans handlers/main.yml)
-# - name: restart fail2ban
-#   service:
-#     name: fail2ban
-#     state: restarted
-#
-# - name: reload apparmor
-#   command: apparmor_parser -r /etc/apparmor.d/docker
+  tags: ["security-tools"]

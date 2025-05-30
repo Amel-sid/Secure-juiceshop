@@ -1,92 +1,203 @@
+# 🔒 Vérifier et résoudre les verrous APT
+- name: 🔍 Vérifier les processus APT en cours
+  shell: ps aux | grep -E "(apt|dpkg)" | grep -v grep
+  register: apt_processes
+  failed_when: false
+  changed_when: false
+  tags: docker
 
-- name: 🛑 Créer le groupe docker (A.9.2.3 - Moindre privilège)
-  group:
-    name: docker-admin
-    state: present
+- name: 📋 Afficher processus APT détectés
+  debug:
+    msg: "Processus APT en cours : {{ apt_processes.stdout_lines }}"
+  when: apt_processes.stdout_lines | length > 0
+  tags: docker
+
+# 🛑 Attendre que les processus APT se terminent
+- name: ⏳ Attendre fin des processus APT/DPKG
+  shell: |
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+          fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+          fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+      echo "En attente de la libération des verrous APT..."
+      sleep 5
+    done
+  register: wait_result
+  changed_when: false
+  tags: docker
+
+# 🧹 Nettoyer les verrous orphelins si nécessaire (en dernier recours)
+- name: 🧹 Supprimer verrous orphelins si nécessaire
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/apt/lists/lock
+    - /var/lib/dpkg/lock-frontend
+    - /var/cache/apt/archives/lock
+  when: ansible_check_mode == false
+  ignore_errors: true
+  tags: docker
+
+# 🔄 Configurer APT pour éviter les conflits
+- name: 🔄 Configurer APT
+  shell: dpkg --configure -a
+  ignore_errors: true
+  tags: docker
 
 # 📦 Installer les paquets nécessaires pour gérer les dépôts HTTPS
-# Ajoute la clé GPG officielle pour que le système fasse confiance aux paquets Docker
-
 # Conformité : A.12.6.1 (gestion des vulnérabilités logicielles)
 - name: 📦 Installer dépendances Docker
   apt:
     name: 
-      - apt-transport-https     # Pour que apt puisse télécharger depuis un dépôt en HTTPS
-      - ca-certificates         # Vérifie que les certificats SSL des dépôts sont valides
+      - apt-transport-https     # pour gérer les dépôts HTTPS
+      - ca-certificates         # certificats SSL pour vérification des dépôts
       - curl                    # utilisé pour récupérer la clé GPG
       - software-properties-common # gestion des dépôts
+      - gnupg                   # pour la gestion des clés GPG
+      - lsb-release            # pour détecter la distribution
     state: present
     update_cache: yes
+    lock_timeout: 300          # Attendre jusqu'à 5 minutes pour le verrou
+  retries: 3
+  delay: 10
+  register: apt_result
+  until: apt_result is succeeded
   tags: docker
 
-# 🔐 Ajout de la clé GPG officielle de Docker
-# Ajoute la clé GPG officielle pour que le système fasse confiance aux paquets Docker
+# 🧹 Supprimer les anciennes versions de Docker (si présentes)
+- name: 🧹 Supprimer anciennes versions Docker
+  apt:
+    name:
+      - docker
+      - docker-engine
+      - docker.io
+      - containerd
+      - runc
+    state: absent
+    lock_timeout: 300
+  retries: 3
+  delay: 10
+  register: remove_result
+  until: remove_result is succeeded
+  tags: docker
+
+# 🔐 Créer le répertoire pour les clés GPG
+- name: 🔐 Créer répertoire keyrings
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  tags: docker
+
+# 🔐 Télécharger et ajouter la clé GPG officielle de Docker
 # Conformité : A.14.2.4 (intégrité du code source)
-- name: 🔐 Ajouter clé GPG Docker
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+- name: 🔐 Télécharger clé GPG Docker
+  shell: |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+  args:
+    creates: /etc/apt/keyrings/docker.gpg
   tags: docker
 
-
-# ➕ Ajout du dépôt Docker officiel
-# Permet d’installer les dernières versions stables signées
+# ➕ Ajout du dépôt Docker officiel avec la nouvelle méthode
+# Permet d'installer les dernières versions stables signées
 - name: ➕ Ajouter dépôt Docker stable
-  apt_repository:
-    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-    state: present
-    filename: docker
+  shell: |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  args:
+    creates: /etc/apt/sources.list.d/docker.list
   tags: docker
 
+# 🔄 Mettre à jour le cache des paquets après ajout du dépôt
+- name: 🔄 Mettre à jour cache APT
+  apt:
+    update_cache: yes
+    lock_timeout: 300
+  retries: 3
+  delay: 10
+  register: update_result
+  until: update_result is succeeded
+  tags: docker
 
 # 🚀 Installation de Docker CE (Community Edition)
 # Conformité : A.12.5.1 (installation contrôlée de logiciels)
-- name: 🚀 Installer Docker
+- name: 🚀 Installer Docker CE
   apt:
     name: 
       - docker-ce              # moteur Docker
       - docker-ce-cli          # CLI Docker
       - containerd.io          # runtime conteneurs
-    state: latest
+      - docker-buildx-plugin   # plugin buildx pour constructions avancées
+      - docker-compose-plugin  # plugin compose v2
+    state: present
     update_cache: yes
+    lock_timeout: 300
+  retries: 3
+  delay: 10
+  register: install_result
+  until: install_result is succeeded
   tags: docker
-
 
 # 🔄 Activer Docker au démarrage et le lancer
 # Conformité : A.12.1.2 (configuration sécurisée des systèmes)
 - name: 🔄 Activer et démarrer Docker
-  service:
+  systemd:
     name: docker
     state: started
     enabled: true
+    daemon_reload: yes
   tags: docker
 
+# ✅ Vérifier que Docker fonctionne
+- name: ✅ Vérifier installation Docker
+  command: docker --version
+  register: docker_version
+  changed_when: false
+  tags: docker
 
-# 🔐 Restreindre les droits sur le socket Docker a root et docker-admin (A.9.2.3 – Moindre privilège)
+- name: 📋 Afficher version Docker
+  debug:
+    msg: "Docker installé : {{ docker_version.stdout }}"
+  tags: docker
+
+# 🔐 Configuration sécurisée du daemon Docker
+- name: 🔐 Créer répertoire configuration Docker
+  file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+  tags: docker
+
+- name: 🔐 Configuration sécurisée daemon Docker
+  copy:
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        },
+        "live-restore": true,
+        "userland-proxy": false,
+        "no-new-privileges": true
+      }
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: restart docker
+  tags: docker
+
+# 🔐 Restreindre les droits sur le socket Docker (A.9.2.3 – Moindre privilège)
 - name: 🔐 Restreindre permissions du socket Docker
   file:
     path: /var/run/docker.sock
     mode: '0660'
     owner: root
-    group: docker-admin
-  when: ansible_facts.services['docker'].status == "running" # Exécute cette tâche seulement si Docker est déjà en train de tourner.
-
-
-#Isoler les utilisateurs à l’intérieur des conteneurs des utilisateurs sur l’hôte.
-- name: 💡 Activer userns-remap dans Docker
-  copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "userns-remap": "default"
-      }
-  notify: restart docker
-
+    group: docker
   tags: docker
 
-- name: 🚫 Désactiver IP forwarding (A.13.1.1 - Contrôles réseau)
-  sysctl:
-    name: net.ipv4.ip_forward
-    value: 0
+# 🔒 Créer groupe docker pour les utilisateurs autorisés
+- name: 🔒 Créer groupe docker
+  group:
+    name: docker
     state: present
-    reload: yes
+  tags: docker

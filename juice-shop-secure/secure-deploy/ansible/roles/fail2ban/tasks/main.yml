@@ -44,4 +44,4 @@
   copy:
     src: nginx.local
     dest: /etc/fail2ban/jail.d/nginx.local
-  notify: Redémarrer Fail2ban
+  notify: restart fail2ban

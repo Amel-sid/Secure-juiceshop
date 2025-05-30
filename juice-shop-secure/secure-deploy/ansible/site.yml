@@ -1,14 +1,26 @@
-- name: Apply hardening
+---
+- name: Appliquer le durcissement
   hosts: local
   become: yes
   vars:
     ansible_python_interpreter: /usr/bin/python3
-
-  roles:
-    - docker
-    - juice
-    - reverse_proxy
-    - hardening
-    - tools
-    - fail2ban
+    ssh_port: 2222
+    admin_ip: "0.0.0.0"  # Remplacez par votre IP réelle
+    docker_version: "5:24.0.7-1~ubuntu.24.04~noble"
+    juice_version: "v15.1.0"
     
+    # Variables globales pour éviter la duplication
+    juice_shop_network: juice_net
+    juice_shop_image: bkimminich/juice-shop
+    juice_shop_version: "latest"  # Au lieu de v15.1.0
+    juice_shop_external_port: "3000"
+    juice_shop_internal_port: "3000"
+    nginx_ssl_path: /opt/nginx-ssl
+    
+  roles:
+    - docker        # 1. Installation Docker
+    - hardening     # 2. Durcissement AVANT les services
+    - tools         # 3. Outils système
+    - juice         # 4. Juice Shop (SANS nginx)
+    - reverse_proxy # 5. Nginx (dépend de juice-shop)
+    - fail2ban      # 6. Protection APRÈS nginx

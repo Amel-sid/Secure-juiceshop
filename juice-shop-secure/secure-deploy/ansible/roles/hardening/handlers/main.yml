@@ -1,0 +1,22 @@
+- name: 🔄 Redémarrer SSH
+  systemd:
+    name: ssh
+    state: restarted
+  notify: restart ssh  # <-- Utilise le handler
+
+- name: 🔒 Appliquer profil Docker
+  copy:
+    dest: /etc/apparmor.d/docker
+    content: |
+      #include <tunables/global>
+      profile docker flags=(attach_disconnected) {
+        deny /etc/passwd rw,
+        deny /etc/shadow rw,
+        deny /root/** rw,
+        capability dac_override,
+      }
+  notify: reload apparmor  # <-- Handler AppArmor
+  
+- name: reload apparmor
+  command: apparmor_parser -r /etc/apparmor.d/docker
+  become: yes

@@ -1,79 +1,97 @@
 ---
-# ansible/roles/juice/tasks/main.yml
-
-- name: 💥 Supprimer ancienne installation (si elle existe)
-  file:
-    path: /opt/juice-shop
+# 🛑 Nettoyer les installations précédentes
+- name: 🛑 Arrêter conteneur Juice Shop existant
+  docker_container:
+    name: juice-shop
     state: absent
+    force_kill: yes
   become: yes
+  ignore_errors: yes
 
-- name: 🏗️ Créer structure répertoires Juice Shop
-  file:
-    path: "{{ item }}"
-    state: directory
-    mode: '0755'
-    owner: 1001
-    group: 1001
-  loop:
-    - /opt/juice-shop
-    - /opt/juice-shop/csaf
-  become: yes
-
-# Prépare les dossiers  pour exposer les bulletins de sécurité CSAF (.well-known/csaf)
-# Simule un éditeur logiciel conforme (divulgation responsable de vulnérabilités)
-- name: 📄 Créer provider-metadata.json (A.16.1.1	-Responsabilités en matière de gestion des incidents de sécurité)
-  copy:
-    content: '{
-      "metadata": {
-        "publisher": "Juice Shop Security",
-        "namespace": "https://juice-sh.op"
-      }
-    }'
-    dest: /opt/juice-shop/csaf/provider-metadata.json
-    owner: 1001
-    group: 1001
-    mode: '0644'
-  become: yes
-
-
-- name: ⛓ Télécharger image Juice Shop (version stable)
-  docker_image:
-    name: bkimminich/juice-shop
-    tag: v15.1.0
-    source: pull
-  become: yes
-
-- name: 🌐 Créer réseau Docker privé
+# 🌐 Créer réseau Docker pour Juice Shop
+- name: 🌐 Créer réseau Docker
   docker_network:
-    name: juice_net
+    name: "{{ juice_shop_network }}"
     driver: bridge
     state: present
   become: yes
 
-- name: 🚀 Lancer conteneur Juice Shop (durci)
+# ⛓ Télécharger image Juice Shop avec retry
+- name: ⛓ Télécharger image Juice Shop
+  docker_image:
+    name: "{{ juice_shop_image }}"
+    tag: "{{ juice_shop_version }}"
+    source: pull
+    timeout: 300  # 5 minutes
+  become: yes
+  retries: 3
+  delay: 30
+  register: pull_result
+  until: pull_result is succeeded
+
+# 🚀 Lancer conteneur Juice Shop
+- name: 🚀 Lancer conteneur Juice Shop
   docker_container:
     name: juice-shop
-    image: bkimminich/juice-shop:v15.1.0
-    security_opts:
-      - no-new-privileges
-      - seccomp=default
-      - apparmor=docker-default
+    image: "{{ juice_shop_image }}:{{ juice_shop_version }}"
     state: started
-    restart_policy: always
+    restart_policy: unless-stopped
     published_ports:
-      - "3000:3000"
-    user: "1001"
+      - "{{ juice_shop_external_port }}:{{ juice_shop_internal_port }}"
     networks:
-      - name: juice_net
-    volumes:
-      - "/opt/juice-shop/csaf:/juice-shop/.well-known/csaf:ro"
-    read_only: true
+      - name: "{{ juice_shop_network }}"
     env:
       NODE_ENV: production
-      CSAF_PUBLISHER_NAME: "Juice Shop"
-    capabilities:
-      drop:
-        - ALL
+      PORT: "{{ juice_shop_internal_port | string }}"
+      # Désactiver le chatbot problématique
+      APPLICATION_CHATBOT: "false"
+      CHATBOT_TRAINING_DATA: ""
+      SOLUTIONS_WEBHOOK: ""
+    # Limitations de ressources
+    memory: 512m
+    memory_swap: 512m
+    cpu_quota: 50000  # 50% d'un CPU
+    # Sécurité
+    security_opts:
+      - "no-new-privileges:true"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
   become: yes
-  tags: juice
+  register: juice_container
 
+# ✅ Vérifier que Juice Shop démarre
+- name: ⏳ Attendre que Juice Shop soit prêt
+  uri:
+    url: "http://localhost:{{ juice_shop_external_port }}"
+    method: GET
+    status_code: 200
+  register: juice_health
+  until: juice_health.status == 200
+  retries: 30
+  delay: 5
+  ignore_errors: yes
+
+# 📋 Afficher le statut
+- name: 📋 Statut de Juice Shop
+  debug:
+    msg: |
+      {% if juice_health.status == 200 %}
+      ✅ Juice Shop disponible sur http://localhost:{{ juice_shop_external_port }}
+      {% else %}
+      ❌ Juice Shop non accessible - vérifier les logs : docker logs juice-shop
+      {% endif %}
+
+# 🔍 Logs en cas de problème
+- name: 🔍 Afficher logs si problème
+  shell: docker logs --tail 20 juice-shop
+  register: juice_logs
+  become: yes
+  when: juice_health.status != 200
+
+- name: 📋 Logs de débogage
+  debug:
+    msg: "{{ juice_logs.stdout_lines }}"
+  when: 
+    - juice_health is failed or (juice_health.status is defined and juice_health.status != 200)
+    - juice_logs is defined
+    - juice_logs.stdout_lines is defined
