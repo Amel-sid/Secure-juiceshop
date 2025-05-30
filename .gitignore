@@ -71,3 +71,90 @@ crash.log
 override.tf
 override.tf.json
 .terraform.lock.hcl
+*.retry
+.vault_pass.txt
+inventory.ini
+
+# ===================== SÉCURITÉ AJOUTÉE =====================
+
+# Terraform sécurité
+terraform/.terraform/
+terraform/terraform.tfvars
+terraform/terraform.tfstate*
+terraform/*.tfplan
+*.tfvars
+*.tfstate*
+
+# Vagrant sécurité
+.vagrant/
+vagrant/.vagrant/
+*.box
+
+# Clés SSH et certificats
+*.key
+*.pem
+*.ppk
+*.crt
+*.cert
+*.p12
+*.pfx
+private_key*
+id_rsa*
+id_ecdsa*
+id_ed25519*
+
+# Secrets Ansible
+vault.yml
+*_vault.yml
+.vault_pass*
+vault_password*
+secrets.yml
+group_vars/*/vault.yml
+host_vars/*/vault.yml
+
+# Variables d'environnement
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# Rapports de sécurité
+trivy-*.json
+trivy-*.txt
+trivy-report.*
+security-reports/
+vulnerability-reports/
+scan-results/
+audit-reports/
+
+# Logs sensibles
+auth.log*
+secure.log*
+deployment.log
+ansible.log
+provision.log
+
+# Fichiers temporaires
+*~
+*.bak
+*.backup
+*.tmp
+.temporary/
+
+# Base de données et dumps
+*.sql
+*.dump
+*.sqlite*
+*.db
+
+# Archives
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Monitoring et métriques
+grafana/
+prometheus/
+monitoring-data/
