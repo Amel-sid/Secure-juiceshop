@@ -6,7 +6,7 @@ Ce dépôt contient deux livrables principaux correspondant aux attentes du test
 
 ## 1️⃣ Sécurisation de l'infrastructure (Juice Shop)
 
-* [📋 Guide de déploiement complet avec preuves](./juice-shop-secure/docs/paste.txt)
+* [📋 Guide de déploiement complet avec preuves](./juice-shop-secure/docs/DEPLOYMENT_PROOF.md)
 * [🔒 Infrastructure sécurisée avec Terraform](./juice-shop-secure/terraform/)
 * [⚙️ Automatisation Ansible](./juice-shop-secure/secure-deploy/)
 * [✅ Script de validation automatique](./validate.sh)
