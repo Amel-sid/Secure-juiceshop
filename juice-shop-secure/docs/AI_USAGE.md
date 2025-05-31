@@ -12,7 +12,7 @@ Ayant un background dev, je suis une adepte des bonnes pratiques et de l'archite
 
 **Incident Response :** Mes cours de master  cyber en gesion des incidents + docu du net pour la structure NIST/PICERL. ChatGPT pour rédiger et structurer les documents proprement.
 
-**Cas d'application :** Mon expérience Visiativ (clients avec des attaques WAF). J'ai soumis ces anecdotes à ChatGPT et demandé de créer le scénario sur plusieurs essais pour un truc réaliste.
+**Cas d'application :** Mon expérience Visiativ (clients sous offre WAF avec des attaques ). J'ai soumis ces anecdotes à ChatGPT et demandé de créer le scénario sur plusieurs essais pour un truc réaliste.
 
 **Security Advisory :** Format Scalingo comme base, ChatGPT pour structurer et traduire en anglais.
 
