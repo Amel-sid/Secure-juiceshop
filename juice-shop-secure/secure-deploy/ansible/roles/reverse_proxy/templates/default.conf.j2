@@ -1,77 +1,132 @@
-server {
-    listen 80;
-    server_name localhost;
+# ===================================================================
+# CONFIGURATION NGINX - REVERSE PROXY SÉCURISÉ POUR JUICE SHOP
+# ===================================================================
+#
+# Cette configuration met en place un reverse proxy HTTPS avec :
+# - Redirection automatique HTTP → HTTPS
+# - Chiffrement TLS moderne (TLSv1.2/1.3)
+# - En-têtes de sécurité web complets
+# - Optimisations spécifiques pour Juice Shop
+# - Protection contre les attaques web courantes
 
+# BLOC HTTP - Redirection vers HTTPS
+# Ce bloc capture toutes les requêtes HTTP sur le port 80
+# et les redirige automatiquement vers HTTPS pour forcer le chiffrement
+server {
+    listen 80;                    # Écoute sur le port HTTP standard
+    server_name localhost;        # Nom de domaine accepté
+    
+    # Redirection 301 (permanente) vers HTTPS
+    # $host conserve le nom de domaine, $request_uri conserve le chemin et les paramètres
     return 301 https://$host$request_uri;
 }
 
+# BLOC HTTPS - Configuration principale sécurisée
 server {
-    listen 443 ssl;
-    server_name localhost;
+    listen 443 ssl;              # Port HTTPS avec SSL/TLS activé
+    server_name localhost;       # Nom de domaine pour ce serveur virtuel
 
-    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
-    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+    # CONFIGURATION SSL/TLS SÉCURISÉE
+    # Chemins vers les certificats générés par le rôle SSL précédent
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;        # Certificat public
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;    # Clé privée
 
+    # Protocoles TLS autorisés - SEULEMENT les versions sécurisées
+    # TLSv1.0 et TLSv1.1 sont obsolètes et vulnérables
     ssl_protocols TLSv1.2 TLSv1.3;
+    
+    # Chiffrements autorisés - SEULEMENT les algorithmes sécurisés
+    # ECDHE pour Perfect Forward Secrecy, AES128-GCM pour performance/sécurité
     ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+    
+    # Le serveur impose ses préférences de chiffrement (plus sécurisé)
     ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
+    
+    # Cache des sessions SSL pour améliorer les performances
+    ssl_session_cache shared:SSL:10m;    # 10MB partagé entre workers
+    ssl_session_timeout 10m;            # Sessions valides 10 minutes
 
-    # En-têtes de sécurité HTTP
+    # EN-TÊTES DE SÉCURITÉ HTTP - Protection contre attaques web
+    
+    # HSTS : Force HTTPS pendant 2 ans, inclut les sous-domaines
     add_header Strict-Transport-Security "max-age=63072000; includeSubdomains" always;
+    
+    # Empêche la détection automatique du type MIME (attaques XSS)
     add_header X-Content-Type-Options "nosniff" always;
+    
+    # Empêche l'affichage de la page dans une iframe (clickjacking)
     add_header X-Frame-Options "DENY" always;
+    
+    # Protection XSS du navigateur activée en mode blocage
     add_header X-XSS-Protection "1; mode=block" always;
+    
+    # Contrôle les informations envoyées dans l'en-tête Referer
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    
+    # Désactive les APIs sensibles du navigateur (géolocalisation, caméra, micro)
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    
+    # CSP : Politique de sécurité du contenu contre XSS et injection de code
+    # 'unsafe-inline' nécessaire car Juice Shop utilise du JS/CSS inline
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self';" always;
+    
+    # Protection contre les attaques Spectre/Meltdown via isolation de processus
     add_header Cross-Origin-Embedder-Policy "require-corp" always;
     add_header Cross-Origin-Opener-Policy "same-origin" always;
     add_header Cross-Origin-Resource-Policy "same-origin" always;
 
+    # CONFIGURATION REVERSE PROXY PRINCIPALE
     location / {
+        # Proxyfication vers le container Juice Shop
+        # juice-shop:3000 résolu via le réseau Docker interne
         proxy_pass http://juice-shop:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Accept-Encoding "";
+        
+        # EN-TÊTES PROXY - Préservation des informations client
+        proxy_set_header Host $host;                           # Nom de domaine original
+        proxy_set_header X-Real-IP $remote_addr;              # IP réelle du client
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  # Chaîne des proxies
+        proxy_set_header X-Forwarded-Proto $scheme;           # Protocole original (https)
+        proxy_set_header Accept-Encoding "";                  # Désactive compression pour sub_filter
 
-        # Correction spécifique pour Juice Shop
+        # OPTIMISATIONS SPÉCIFIQUES JUICE SHOP
+        # Support WebSocket et connexions persistantes
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_http_version 1.1;
-        proxy_redirect off;
-        proxy_buffering off;
-        
-        # Réécriture des chemins de ressources
-        sub_filter_once off;
-        sub_filter_types text/html text/css application/javascript;
-        sub_filter '="/' '="/';
-        sub_filter "='/static" "='/static";
-        sub_filter 'url(/' 'url(/';
-        sub_filter 'url("/' 'url("/';
-        sub_filter 'url(../' 'url(../';
+        proxy_http_version 1.1;                              # HTTP/1.1 pour keep-alive
+        proxy_redirect off;                                  # Pas de réécriture auto des redirections
+        proxy_buffering off;                                 # Streaming en temps réel
 
-        # Gestion des timeouts
-        proxy_connect_timeout 90;
-        proxy_send_timeout 90;
-        proxy_read_timeout 90;
-        send_timeout 90;
+        # RÉÉCRITURE DES CHEMINS DE RESSOURCES
+        # Nécessaire car Juice Shop peut générer des chemins relatifs incorrects
+        sub_filter_once off;                                # Applique les remplacements multiple fois
+        sub_filter_types text/html text/css application/javascript;  # Types de fichiers concernés
+        sub_filter '="/' '="/';                             # Chemins absolus racine
+        sub_filter "='/static" "='/static";                 # Ressources statiques
+        sub_filter 'url(/' 'url(/';                         # URLs CSS
+        sub_filter 'url("/' 'url("/';                       # URLs CSS avec guillemets
+        sub_filter 'url(../' 'url(../';                     # URLs relatives CSS
+
+        # TIMEOUTS ADAPTÉS POUR JUICE SHOP
+        # Juice Shop en Node.js peut être lent au démarrage ou sur certaines requêtes
+        proxy_connect_timeout 90;                           # 90s pour se connecter au backend
+        proxy_send_timeout 90;                              # 90s pour envoyer la requête
+        proxy_read_timeout 90;                              # 90s pour lire la réponse
+        send_timeout 90;                                     # 90s pour envoyer au client
     }
 
-    # Cache pour les ressources statiques
+    # OPTIMISATION POUR RESSOURCES STATIQUES
+    # Cache agressif pour les fichiers qui changent rarement
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
         proxy_pass http://juice-shop:3000;
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
+        expires 30d;                                        # Cache navigateur pendant 30 jours
+        add_header Cache-Control "public, no-transform";   # Cache public, pas de transformation
     }
 
-    # Bloque l'accès aux fichiers cachés
+    # SÉCURITÉ - Blocage des fichiers cachés
+    # Empêche l'accès aux fichiers système (.htaccess, .git, .env, etc.)
     location ~ /\. {
-        deny all;
-        access_log off;
-        log_not_found off;
+        deny all;                                           # Refuse toutes ces requêtes
+        access_log off;                                     # Pas de log pour réduire le bruit
+        log_not_found off;                                  # Pas de log "fichier non trouvé"
     }
 }

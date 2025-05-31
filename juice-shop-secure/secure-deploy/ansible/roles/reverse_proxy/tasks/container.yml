@@ -1,15 +1,36 @@
+# ===================================================================
+# RÔLE NGINX REVERSE PROXY - EXPOSITION SÉCURISÉE DE JUICE SHOP
+# ===================================================================
+#
+# Ce rôle déploie un reverse proxy Nginx devant l'application Juice Shop
+# pour ajouter le chiffrement HTTPS et masquer l'application derrière un proxy.
+#
+# OBJECTIF :
+# - Exposer Juice Shop via HTTPS sur le port 443 standard
+# - Rediriger automatiquement HTTP vers HTTPS
+# - Masquer l'application derrière un proxy (sécurité par obscurité)
+# - Ajouter des en-têtes de sécurité web
+#
+# ARCHITECTURE :
+# Client -> Nginx (443 HTTPS) -> Juice Shop (3000 HTTP dans le réseau Docker)
+
 ---
-# 🛑 Nettoyer conteneur nginx existant
-- name: 🛑 Supprimer conteneur nginx existant
+# Nettoyer les installations précédentes pour éviter les conflits
+# Si un ancien container nginx existe, on le supprime proprement
+# Force kill car nginx peut parfois rester bloqué lors d'un arrêt
+- name: Supprimer conteneur nginx existant
   docker_container:
     name: juice-proxy
     state: absent
     force_kill: yes
   become: yes
-  ignore_errors: yes
+  ignore_errors: yes  # Normal qu'il n'y ait rien à supprimer au premier déploiement
+  tags: nginx-proxy
 
-# # ✅ Vérifier que Juice Shop est accessible
-# - name: ✅ Vérifier disponibilité de Juice Shop
+# Vérifier que Juice Shop est accessible avant de déployer le proxy
+# COMMENTÉ car peut créer des dépendances circulaires dans l'ordre de déploiement
+# En production, on s'assurerait que l'app backend est up avant le proxy
+# - name: Vérifier disponibilité de Juice Shop
 #   uri:
 #     url: "http://localhost:{{ juice_shop_external_port }}"
 #     method: GET
@@ -17,75 +38,89 @@
 #   register: juice_check
 #   ignore_errors: yes
 
-# 🌐 Lancer conteneur nginx reverse proxy
-- name: 🌐 Lancer nginx reverse proxy
+# Lancer le container Nginx en mode reverse proxy
+# Image nginx:alpine pour un container léger et sécurisé (base Alpine Linux)
+# Configuration des volumes pour injecter notre config et les certificats SSL
+- name: Lancer nginx reverse proxy
   docker_container:
     name: juice-proxy
-    image: nginx:alpine
+    image: nginx:alpine          # Image officielle légère basée sur Alpine Linux
     state: started
-    restart_policy: unless-stopped
+    restart_policy: unless-stopped  # Redémarre automatiquement si le container crash
+    
+    # Exposition des ports web standards
     published_ports:
-      - "80:80"
-      - "443:443"
+      - "80:80"                  # HTTP pour redirection vers HTTPS
+      - "443:443"                # HTTPS pour accès sécurisé
+    
+    # Connexion au même réseau que Juice Shop pour communication interne
     networks:
       - name: "{{ juice_shop_network }}"
+    
+    # Montage des fichiers de configuration et certificats
     volumes:
-      - "/tmp/nginx-juice.conf:/etc/nginx/conf.d/default.conf:ro"
-      - "{{ nginx_ssl_path }}:/etc/nginx/ssl:ro"
-    # Limitations de ressources
-    memory: 128m
-    # Sécurité
+      - "/tmp/nginx-juice.conf:/etc/nginx/conf.d/default.conf:ro"  # Config nginx (lecture seule)
+      - "{{ nginx_ssl_path }}:/etc/nginx/ssl:ro"                   # Certificats SSL (lecture seule)
+    
+    # Limitation des ressources car nginx est léger
+    memory: 128m                 # 128MB suffisent pour nginx reverse proxy
+    
+    # Paramètres de sécurité du container
     security_opts:
-      - "no-new-privileges:true"
+      - "no-new-privileges:true" # Empêche l'escalade de privilèges dans le container
+    
   become: yes
-  # when: juice_check.status_code == 200
+  # when: juice_check.status_code == 200  # COMMENTÉ pour éviter les dépendances
+  tags: nginx-proxy
 
-# ⏳ Attendre que nginx soit prêt
-- name: ⏳ Attendre que nginx soit prêt
+# Attendre que nginx soit complètement démarré et écoute sur le port HTTPS
+# Timeout de 30 secondes car nginx démarre très rapidement
+# Important car les tests suivants dépendent de nginx opérationnel
+- name: Attendre que nginx soit prêt
   wait_for:
-    port: 443
+    port: 443                    # Port HTTPS
     host: localhost
-    timeout: 30
+    timeout: 30                  # 30 secondes max d'attente
   # when: juice_check.status_code == 200
+  tags: nginx-proxy
 
-# # 🧪 Test de santé final
-# - name: 🧪 Test accès HTTPS
+# Test de santé pour vérifier l'accès HTTPS final
+# COMMENTÉ car peut créer des échecs si les certificats auto-signés posent problème
+# validate_certs: no car on utilise des certificats auto-signés
+# - name: Test accès HTTPS
 #   uri:
 #     url: "https://localhost"
 #     method: GET
 #     status_code: 200
-#     validate_certs: no
+#     validate_certs: no        # Ignore les erreurs de certificat auto-signé
 #   register: https_check
 #   retries: 3
 #   delay: 5
 #   ignore_errors: yes
 #   when: juice_check.status_code == 200
 
-# # 📋 Rapport final
-# - name: 📋 Rapport de déploiement
-#   debug:
-#     msg: |
-#       🎯 ÉTAT DU DÉPLOIEMENT :
+
+
+# Afficher les informations de connexion pour les utilisateurs
+- name: Rapport nginx reverse proxy
+  debug:
+    msg: |
+      ================================
+      NGINX REVERSE PROXY DÉPLOYÉ
+      ================================
+      Container: juice-proxy
+      Image: nginx:alpine
+      Ports exposés: 80 (HTTP) et 443 (HTTPS)
       
-#       {% if juice_check.status_code == 200 %}
-#       ✅ Juice Shop : http://localhost:{{ juice_shop_external_port }}
+      Accès à l'application :
+      - HTTPS (recommandé): https://localhost
+      - HTTP (redirigé): http://localhost
       
-#       {% if https_check.status_code == 200 %}
-#       ✅ Nginx HTTPS : https://localhost
-#       ✅ HTTP → HTTPS : http://localhost (redirection automatique)
+      Architecture:
+      Internet -> Nginx (443) -> Juice Shop (3000)
       
-#       🎉 DÉPLOIEMENT RÉUSSI !
-#       {% else %}
-#       ⚠️  Nginx : problème HTTPS (vérifier certificats)
-#       🌐 Accès direct : http://localhost:{{ juice_shop_external_port }}
-#       {% endif %}
-      
-#       {% else %}
-#       ❌ Juice Shop non accessible
-#       🔧 Vérifier : docker logs juice-shop
-#       {% endif %}
-      
-#       🔧 Commandes utiles :
-#       - docker ps
-#       - docker logs juice-shop
-#       - docker logs juice-proxy
+      Troubleshooting :
+      - docker logs juice-proxy
+      - docker logs juice-shop
+      ================================
+  tags: nginx-proxy

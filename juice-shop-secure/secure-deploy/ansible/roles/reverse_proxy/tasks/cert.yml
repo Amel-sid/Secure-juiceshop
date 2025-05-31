@@ -1,31 +1,92 @@
+# ===================================================================
+# RÔLE NGINX SSL - CONFIGURATION HTTPS AVEC CERTIFICATS AUTO-SIGNÉS
+# ===================================================================
+#
+# Ce rôle configure le chiffrement HTTPS pour l'application Juice Shop
+# en générant des certificats SSL auto-signés et en sécurisant leur stockage.
+#
+# OBJECTIF :
+# Chiffrer tout le trafic web entre les clients et l'application pour empêcher
+# l'interception des données en transit (mots de passe, cookies de session, etc.)
+#
+# POURQUOI DES CERTIFICATS AUTO-SIGNÉS :
+# Pour un environnement de test/demo, les certificats auto-signés suffisent
+# et évitent la complexité d'obtenir des certificats d'une autorité de certification.
+# En production, on utiliserait Let's Encrypt ou des certificats commerciaux.
+
 ---
-# 🔐 Créer répertoire SSL
-- name: 🔐 Créer répertoire SSL
+# Créer le répertoire pour stocker les certificats SSL
+# Répertoire standard /etc/ssl/certs pour les certificats système
+# Permissions 755 permettent la lecture par nginx mais pas la modification
+- name: Créer répertoire SSL
   file:
     path: "{{ nginx_ssl_path }}"
     state: directory
-    mode: '0755'
+    mode: '0755'              # Lecture par tous, écriture par root seulement
+    owner: root
+    group: root
   become: yes
+  tags: nginx-ssl
 
-# 🔐 Générer certificats auto-signés
-- name: 🔐 Générer certificats SSL auto-signés
+# Générer les certificats SSL auto-signés avec OpenSSL
+# Cette commande crée à la fois la clé privée et le certificat public
+# RSA 2048 bits est le standard actuel pour un bon équilibre sécurité/performance
+#
+# POURQUOI PAS LET'S ENCRYPT :
+# - Let's Encrypt nécessite un nom de domaine public accessible depuis Internet
+# - Notre test utilise "localhost" qui n'est pas un domaine valide
+# - Let's Encrypt demande une validation DNS/HTTP qui ne fonctionne pas en local
+# - Les certificats auto-signés sont parfaits pour les environnements de test/dev
+# - Plus simple à mettre en place : 1 commande vs configuration complexe avec certbot
+# - Pas de renouvellement automatique à gérer (certificat valable 1 an)
+- name: Générer certificats SSL auto-signés
   shell: |
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout {{ nginx_ssl_path }}/selfsigned.key \
     -out {{ nginx_ssl_path }}/selfsigned.crt \
     -subj "/C=FR/ST=State/L=City/O=JuiceShop/CN=localhost"
   args:
-    creates: "{{ nginx_ssl_path }}/selfsigned.crt"
+    creates: "{{ nginx_ssl_path }}/selfsigned.crt"  # Ne s'exécute que si le fichier n'existe pas
   become: yes
+  tags: nginx-ssl
 
-# 🔒 Sécuriser les permissions
-- name: 🔒 Sécuriser permissions certificats
+# Sécuriser strictement les permissions des fichiers de certificats
+# La clé privée doit être accessible SEULEMENT par root (600)
+# Le certificat public peut être lu par nginx mais pas modifié
+- name: Sécuriser permissions certificats
   file:
     path: "{{ item }}"
-    mode: '0600'
-    owner: root
-    group: root
+    mode: '0600'              # Lecture/écriture par root uniquement
+    owner: root              # Propriétaire root
+    group: root              # Groupe root
   loop:
-    - "{{ nginx_ssl_path }}/selfsigned.key"
-    - "{{ nginx_ssl_path }}/selfsigned.crt"
+    - "{{ nginx_ssl_path }}/selfsigned.key"    # Clé privée - CRITIQUE
+    - "{{ nginx_ssl_path }}/selfsigned.crt"    # Certificat public
   become: yes
+  tags: nginx-ssl
+
+# Vérifier que les certificats sont valides et bien formés
+# Cette vérification confirme que la génération s'est bien passée
+- name: Vérifier validité des certificats SSL
+  shell: |
+    openssl x509 -in {{ nginx_ssl_path }}/selfsigned.crt -text -noout | grep -q "RSA Public-Key"
+    openssl rsa -in {{ nginx_ssl_path }}/selfsigned.key -check -noout
+  register: ssl_check
+  changed_when: false
+  tags: nginx-ssl
+
+# Afficher les détails du certificat généré pour validation
+- name: Afficher informations certificat SSL
+  shell: |
+    echo "=== CERTIFICAT SSL GÉNÉRÉ ==="
+    openssl x509 -in {{ nginx_ssl_path }}/selfsigned.crt -subject -dates -noout
+    echo "Validité : 365 jours"
+    echo "Algorithme : RSA 2048 bits"
+  register: cert_info
+  changed_when: false
+  tags: nginx-ssl
+
+- name: Rapport certificats SSL
+  debug:
+    msg: "{{ cert_info.stdout_lines }}"
+  tags: nginx-ssl
