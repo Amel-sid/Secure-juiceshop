@@ -1,4 +1,4 @@
-# 🤖 Usage de l'IA – Mon binôme technique
+# 🤖 Usage de l'IA 
 
 ## Approche générale
 
