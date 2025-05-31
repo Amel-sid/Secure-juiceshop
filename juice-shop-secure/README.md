@@ -13,7 +13,7 @@
 
 ## Documentation
 - [Security Measures](docs/SECURITY_MEASURES.md)
-- [Compliance](docs/COMPLIANCE_MAPPING.md)
+- [Compliance Mapping](docs/COMPLIANCE_MAPPING.md)
 - [AI Usage](docs/AI_USAGE.md)
 
 - [Incident Response](2-Incident-Response/)
