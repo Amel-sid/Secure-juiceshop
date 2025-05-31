@@ -1,163 +1,255 @@
+# ===================================================================
+# RÔLE HARDENING SYSTÈME - DURCISSEMENT SÉCURITAIRE COMPLET
+# ===================================================================
+#
+# Ce rôle applique un ensemble de mesures de durcissement sécuritaire
+# sur le système Ubuntu pour réduire la surface d'attaque et renforcer
+# les défenses contre les intrusions.
+#
+# OBJECTIFS :
+# - Configurer un firewall restrictif avec politique de déni par défaut
+# - Durcir la configuration SSH pour limiter les vecteurs d'attaque
+# - Installer et configurer des outils de protection automatique
+# - Mettre en place la maintenance sécuritaire automatisée
+#
+# PRINCIPE : Défense en profondeur avec plusieurs couches de sécurité
+
 ---
 # ===================== SECTION 1: CONFIGURATION RÉSEAU =====================
-- name: 🔒 CONFIGURATION PAREFEUX (ISO 27001 A.13.1.1)
+- name: CONFIGURATION PAREFEUX - Contrôle d'accès réseau strict
   block:
-    - name: ✨ Activer UFW avec politique restrictive
+    # Activer UFW avec une politique restrictive par défaut
+    # UFW (Uncomplicated Firewall) est l'interface simplifiée d'iptables sur Ubuntu
+    # Politique "deny" = tout ce qui n'est pas explicitement autorisé est bloqué
+    - name: Activer UFW avec politique restrictive
       ufw:
-        state: enabled
-        policy: deny
-        logging: medium
+        state: enabled           # Active le firewall
+        policy: deny            # DENY par défaut = sécurité maximale
+        logging: medium         # Log les connexions bloquées pour analyse
+      tags: firewall
 
-    # COMMENTÉ - Cause problème SSH Vagrant
-    # - name: 🔒 Autoriser SSH depuis IP admin
+    # Autoriser SSH pour l'administration à distance
+    # CHOIX TECHNIQUE : Port 22 standard gardé pour compatibilité Vagrant
+    # En production, on changerait le port SSH pour réduire les scans automatisés
+    # COMMENTÉ car cause des problèmes avec Vagrant qui utilise des clés spécifiques
+    # - name: Autoriser SSH depuis IP admin spécifique
     #   ufw:
     #     rule: allow
     #     port: "{{ ssh_port }}"
     #     proto: tcp
-    #     src: "{{ admin_ip }}/32"
+    #     src: "{{ admin_ip }}/32"  # Restriction par IP source
 
-    # AJOUTÉ - Autoriser SSH pour Vagrant
-    - name: 🔒 Autoriser SSH Vagrant
+    # SOLUTION POUR VAGRANT : Autoriser SSH depuis toutes les IPs
+    # En environnement de test, on garde l'accès SSH ouvert
+    # Fail2ban se chargera de la protection contre le brute force
+    - name: Autoriser SSH Vagrant
       ufw:
         rule: allow
         port: 22
         proto: tcp
+      tags: firewall
 
-    - name: 🚫 Bloquer accès direct à Juice Shop
+    # Bloquer l'accès direct à Juice Shop (port 3000)
+    # PRINCIPE : Forcer le passage par le reverse proxy nginx
+    # Seul nginx doit pouvoir accéder directement à l'application
+    - name: Bloquer accès direct à Juice Shop
       ufw:
         rule: deny
         port: 3000
         proto: tcp
+      tags: firewall
 
-    - name: 🌐 Autoriser HTTPS
+    # Autoriser le trafic web standard via le reverse proxy
+    # Port 443 HTTPS = accès principal sécurisé
+    # Port 80 HTTP = redirection automatique vers HTTPS
+    - name: Autoriser HTTPS
       ufw:
         rule: allow
         port: 443
         proto: tcp
+      tags: firewall
 
-    - name: 🌐 Autoriser HTTP
+    - name: Autoriser HTTP
       ufw:
         rule: allow
         port: 80
         proto: tcp
+      tags: firewall
   tags: ["firewall"]
 
 # ===================== SECTION 2: DURCISSEMENT SSH =====================
-- name: 🔐 DURCISSEMENT SSH (ISO 27001 A.9.4.2)
+- name: DURCISSEMENT SSH - Sécurisation des accès administratifs
   block:
-    # COMMENTÉ - Cause problème port SSH
-    # - name: 🔧 Changer port SSH
+    # Changer le port SSH par défaut (COMMENTÉ pour Vagrant)
+    # RAISON : Vagrant utilise des configurations SSH spécifiques
+    # En production, changer le port SSH réduit drastiquement les scans automatisés
+    # - name: Changer port SSH
     #   lineinfile:
     #     path: /etc/ssh/sshd_config
     #     regexp: '^#?Port'
     #     line: 'Port {{ ssh_port }}'
     #     backup: yes
-    #     validate: '/usr/sbin/sshd -t -f %s'
+    #     validate: '/usr/sbin/sshd -t -f %s'  # Validation syntaxe avant application
 
-    # COMMENTÉ - Cause problème authentification Vagrant
-    # - name: 🔑 Forcer authentification par clé
+    # Forcer l'authentification par clé publique uniquement (COMMENTÉ pour Vagrant)
+    # RAISON : Vagrant utilise parfois des mots de passe pour l'initialisation
+    # En production, désactiver complètement l'auth par mot de passe
+    # - name: Forcer authentification par clé
     #   lineinfile:
     #     path: /etc/ssh/sshd_config
     #     regexp: '^#?AuthenticationMethods'
     #     line: 'AuthenticationMethods publickey'
     #     validate: '/usr/sbin/sshd -t -f %s'
 
-    - name: ⏱ Limiter tentatives de connexion
+    # Limiter le nombre de tentatives d'authentification
+    # 3 tentatives max avant déconnexion = équilibre usabilité/sécurité
+    # Complété par Fail2ban qui bannit après plusieurs échecs
+    - name: Limiter tentatives de connexion
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^#?MaxAuthTries'
         line: 'MaxAuthTries 3'
-        validate: '/usr/sbin/sshd -t -f %s'
+        validate: '/usr/sbin/sshd -t -f %s'  # Toujours valider la syntaxe
+      tags: ssh
 
-    - name: ⛔ Désactiver options dangereuses
+    # Désactiver les fonctionnalités SSH dangereuses ou inutiles
+    # Ces options peuvent être exploitées pour des attaques ou du pivoting
+    - name: Désactiver options SSH dangereuses
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^#?{{ item.key }}'
         line: '{{ item.value }}'
         validate: '/usr/sbin/sshd -t -f %s'
       loop:
-        - { key: 'X11Forwarding', value: 'X11Forwarding no' }
-        - { key: 'AllowTcpForwarding', value: 'AllowTcpForwarding no' }
-        - { key: 'PermitTunnel', value: 'PermitTunnel no' }
-        - { key: 'ClientAliveInterval', value: 'ClientAliveInterval 300' }
-        - { key: 'ClientAliveCountMax', value: 'ClientAliveCountMax 2' }
+        - { key: 'X11Forwarding', value: 'X11Forwarding no' }           # Pas de redirection X11
+        - { key: 'AllowTcpForwarding', value: 'AllowTcpForwarding no' } # Pas de tunnels TCP
+        - { key: 'PermitTunnel', value: 'PermitTunnel no' }             # Pas de tunnels réseau
+        - { key: 'ClientAliveInterval', value: 'ClientAliveInterval 300' }  # Timeout session 5min
+        - { key: 'ClientAliveCountMax', value: 'ClientAliveCountMax 2' }    # 2 vérifications max
+      tags: ssh
 
-    - name: 🔄 Redémarrer SSH
+    # Redémarrer SSH pour appliquer les nouvelles configurations
+    # Le service SSH doit être redémarré pour prendre en compte les changements
+    - name: Redémarrer SSH
       systemd:
         name: ssh
         state: restarted
+      tags: ssh
   tags: ["ssh"]
 
 # ===================== SECTION 3: OUTILS DE SÉCURITÉ =====================
-- name: 🛡️ OUTILS DE PROTECTION (ISO 27001 A.12.6)
+- name: OUTILS DE PROTECTION - Installation et configuration des défenses automatiques
   block:
     # ----- SOUS-SECTION: Fail2Ban -----
-    - name: 🛡 Installer et configurer Fail2Ban
+    # Fail2ban protège contre les attaques par force brute en analysant les logs
+    - name: Installer et configurer Fail2Ban
       block:
-        - name: 📦 Installer Fail2Ban
+        # Installation du package Fail2ban depuis les dépôts Ubuntu
+        - name: Installer Fail2Ban
           apt:
             name: fail2ban
             state: present
+          tags: fail2ban
 
-        - name: 🔧 Configurer jail SSH
+        # Configuration spécifique pour la protection SSH
+        # Cette jail surveille /var/log/auth.log et bannit les IP suspectes
+        - name: Configurer jail SSH
           copy:
             dest: /etc/fail2ban/jail.d/sshd.conf
             content: |
               [sshd]
-              enabled = true
-              port = 22
-              filter = sshd
-              logpath = /var/log/auth.log
-              maxretry = 3
-              bantime = 1h
-              findtime = 10m
-              ignoreip = 127.0.0.1/8 10.0.0.0/8 192.168.0.0/16
+              enabled = true                    # Active la protection SSH
+              port = 22                        # Port SSH à surveiller
+              filter = sshd                    # Filtre pour détecter les échecs SSH
+              logpath = /var/log/auth.log      # Fichier de log à analyser
+              maxretry = 3                     # 3 échecs max avant bannissement
+              bantime = 1h                     # Bannissement pendant 1 heure
+              findtime = 10m                   # Fenêtre de 10 minutes pour compter les échecs
+              ignoreip = 127.0.0.1/8 10.0.0.0/8 192.168.0.0/16  # IPs locales ignorées
+            mode: '0644'
+          notify: restart fail2ban
+          tags: fail2ban
 
-        - name: 🔧 Configurer jail Nginx
+        # Configuration pour protéger nginx contre les attaques web
+        # Surveille les tentatives d'authentification échouées sur les services web
+        - name: Configurer jail Nginx
           copy:
             dest: /etc/fail2ban/jail.d/nginx.conf
             content: |
               [nginx-http-auth]
-              enabled = true
-              port = http,https
-              logpath = /var/log/nginx/error.log
-              maxretry = 3
+              enabled = true                   # Active la protection web
+              port = http,https               # Ports web à protéger
+              logpath = /var/log/nginx/error.log  # Log des erreurs nginx
+              maxretry = 3                    # 3 tentatives max
+              bantime = 1h                    # Bannissement 1 heure
+              findtime = 10m                  # Fenêtre de 10 minutes
+            mode: '0644'
           notify: restart fail2ban
+          tags: fail2ban
       
     # ----- SOUS-SECTION: AppArmor -----
-    - name: 🛡 Installer et activer AppArmor
+    # AppArmor fournit un confinement obligatoire pour les applications
+    - name: Installer et activer AppArmor
       block:
-        - name: 📦 Installer AppArmor
+        # Installation des packages AppArmor et profils de sécurité
+        - name: Installer AppArmor
           apt:
             name:
-              - apparmor
-              - apparmor-utils
-              - apparmor-profiles
+              - apparmor           # Moteur de confinement principal
+              - apparmor-utils     # Utilitaires de gestion des profils
+              - apparmor-profiles  # Profils prédéfinis pour applications courantes
             state: present
-            update_cache: no
+            update_cache: no      # Pas de mise à jour du cache (déjà fait)
+          tags: apparmor
 
-        - name: 🔄 Activer AppArmor
+        # Activer le service AppArmor au démarrage
+        # AppArmor doit être actif pour appliquer les restrictions
+        - name: Activer AppArmor
           service:
             name: apparmor
-            state: started
-            enabled: true
+            state: started        # Démarre maintenant
+            enabled: true         # Active au boot
+          tags: apparmor
 
-        - name: 🔒 Appliquer profil Docker
+        # Créer un profil AppArmor spécifique pour Docker
+        # Ce profil limite ce que les containers Docker peuvent faire
+        - name: Appliquer profil Docker AppArmor
           copy:
             dest: /etc/apparmor.d/docker
             content: |
               #include <tunables/global>
               profile docker flags=(attach_disconnected) {
-                deny /etc/passwd rw,
-                deny /etc/shadow rw,
-                deny /root/** rw,
-                capability dac_override,
+                deny /etc/passwd rw,          # Interdit modification fichier utilisateurs
+                deny /etc/shadow rw,          # Interdit modification mots de passe
+                deny /root/** rw,             # Interdit accès au répertoire root
+                capability dac_override,     # Autorise override des permissions fichiers
               }
+            mode: '0644'
           notify: reload apparmor
+          tags: apparmor
       
-    # ----- SOUS-SECTION: Mises à jour -----
-    - name: ♻️ Activer mises à jour automatiques
+    # ----- SOUS-SECTION: Mises à jour automatiques -----
+    # Les mises à jour automatiques corrigent les vulnérabilités rapidement
+    - name: Activer mises à jour automatiques
       apt:
-        name: unattended-upgrades
+        name: unattended-upgrades  # Package pour mises à jour automatiques
         state: present
+      tags: updates
+
+    # Configuration des mises à jour automatiques pour sécurité uniquement
+    - name: Configurer mises à jour automatiques
+      copy:
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        content: |
+          // Configuration mises à jour automatiques sécurisées
+          Unattended-Upgrade::Allowed-Origins {
+              "${distro_id}:${distro_codename}-security";     # Seulement mises à jour sécurité
+          };
+          Unattended-Upgrade::AutoFixInterruptedDpkg "true";  # Répare installations interrompues
+          Unattended-Upgrade::MinimalSteps "true";            # Étapes minimales pour stabilité
+          Unattended-Upgrade::Remove-Unused-Dependencies "true";  # Nettoie dépendances inutiles
+          Unattended-Upgrade::Automatic-Reboot "false";       # Pas de redémarrage automatique
+        mode: '0644'
+      tags: updates
   tags: ["security-tools"]
+

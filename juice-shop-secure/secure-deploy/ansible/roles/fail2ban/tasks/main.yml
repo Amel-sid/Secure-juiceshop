@@ -1,47 +1,92 @@
-# 📦 Installer Fail2ban
-- name: 📦 Installer Fail2ban
+# ===================================================================
+# RÔLE FAIL2BAN - PROTECTION AUTOMATIQUE CONTRE LES INTRUSIONS
+# ===================================================================
+#
+# Fail2ban surveille les logs et bannit automatiquement les IP qui tentent
+# des attaques par force brute sur SSH ou sur l'application web.
+#
+# Principe simple : si quelqu'un échoue 3 fois à se connecter en SSH,
+# son IP est automatiquement bloquée pendant 10 minutes.
+#
+
+
+---
+# Installer Fail2ban depuis les dépôts Ubuntu
+# Package standard qui fournit la protection anti-intrusion
+- name: Installer Fail2ban
   apt:
     name: fail2ban
     state: present
     update_cache: yes
+  tags: fail2ban
 
-# ⚙️ Définir la config SSH
-- name: ⚙️ Configurer Fail2ban pour SSH
+# Configurer la protection SSH
+# Cette config dit à Fail2ban de surveiller les tentatives de connexion SSH
+# Si 3 échecs en 5 minutes = bannissement IP pendant 10 minutes
+- name: Configurer Fail2ban pour SSH
   copy:
     dest: /etc/fail2ban/jail.d/ssh.local
     content: |
       [sshd]
-      enabled = true
-      port = ssh
-      logpath = %(sshd_log)s
-      maxretry = 3
-      bantime = 600
-      findtime = 300
+      enabled = true              # Active la protection SSH
+      port = ssh                  # Surveille le port SSH (22)
+      logpath = %(sshd_log)s     # Lit le fichier /var/log/auth.log
+      maxretry = 3               # 3 tentatives max avant ban
+      bantime = 600              # Ban pendant 10 minutes
+      findtime = 300             # Compte les échecs sur 5 minutes
+    mode: '0644'
+  notify: restart fail2ban
+  tags: fail2ban
 
-
-
-# 🔁 Redémarrer le service Fail2ban
-- name: 🔁 Redémarrer Fail2ban
+# Redémarrer Fail2ban pour appliquer la config SSH
+# Active aussi le service au démarrage du serveur
+- name: Redémarrer Fail2ban
   service:
     name: fail2ban
     state: restarted
     enabled: true
+  tags: fail2ban
 
-# 🧪 Vérifier que Fail2ban a bien activé la jail SSH
-- name: 🧪 Vérifier la jail SSH dans Fail2ban
+# Vérifier que Fail2ban protège bien SSH
+# Cette commande nous dit si la protection SSH est active
+- name: Vérifier la jail SSH dans Fail2ban
   command: fail2ban-client status sshd
   register: fail2ban_status
   failed_when: "'No jail' in fail2ban_status.stdout"
   changed_when: false
+  tags: fail2ban
 
-- name: 🧾 Afficher l’état de la jail SSH
+# Afficher l'état de la protection SSH
+# Montre combien d'IP sont bannies et les stats de protection
+- name: Afficher l'état de la jail SSH
   debug:
     var: fail2ban_status.stdout
+  tags: fail2ban
 
-
-# 🛡 Ajouter la jail Nginx pour fail2ban
-- name: 🔒 Jail Nginx (badbots + auth)
+# Ajouter la protection Nginx pour l'application web
+# Protège Juice Shop contre les bots malveillants et les scans
+- name: Jail Nginx pour protection anti-bots et authentification
   copy:
-    src: nginx.local
     dest: /etc/fail2ban/jail.d/nginx.local
+    content: |
+      # Protection contre les bots qui scannent l'application
+      [nginx-badbots]
+      enabled = true
+      port = http,https
+      logpath = /var/log/nginx/access.log
+      maxretry = 2               # 2 requêtes suspectes = ban
+      bantime = 86400            # Ban 24h pour les bots
+      findtime = 600             # Fenêtre de 10 minutes
+      
+      # Protection contre les attaques sur les formulaires de login
+      [nginx-auth]
+      enabled = true
+      port = http,https
+      logpath = /var/log/nginx/error.log
+      maxretry = 6               # 6 échecs de login = ban
+      bantime = 3600             # Ban 1h pour les attaques login
+      findtime = 600             # Fenêtre de 10 minutes
+    mode: '0644'
   notify: restart fail2ban
+  tags: fail2ban
+
