@@ -1,50 +1,127 @@
-- name: 📦 Télécharger Trivy
+# ===================================================================
+# RÔLE TRIVY SCANNER - ANALYSE DE VULNÉRABILITÉS DES IMAGES DOCKER
+# ===================================================================
+#
+# Ce rôle installe et utilise Trivy pour scanner les vulnérabilités
+# de sécurité dans l'image Docker de Juice Shop.
+#
+# OBJECTIF :
+# Identifier les vulnérabilités connues dans l'image bkimminich/juice-shop
+# pour évaluer le niveau de risque et documenter les failles présentes.
+#
+# POURQUOI TRIVY :
+# - Scanner gratuit et open-source d'Aqua Security
+# - Base de données de vulnérabilités constamment mise à jour
+# - Support complet des images Docker et formats OCI
+# - Rapports détaillés par niveau de gravité (LOW, MEDIUM, HIGH, CRITICAL)
+# - Outil standard de l'industrie pour la sécurité des containers
+
+---
+# Télécharger l'exécutable Trivy depuis GitHub Releases
+# Version 0.51.1 choisie car stable et récente au moment du développement
+# Téléchargement en tant qu'utilisateur normal pour éviter les privilèges root inutiles
+- name: Télécharger Trivy
   get_url:
     url: https://github.com/aquasecurity/trivy/releases/download/v0.51.1/trivy_0.51.1_Linux-64bit.tar.gz
     dest: /tmp/trivy.tar.gz
-    mode: '0644'
+    mode: '0644'              # Lecture par tous, pas d'exécution sur l'archive
   register: trivy_download
-  retries: 3
-  delay: 5
+  retries: 3                  # 3 tentatives car le téléchargement peut échouer (réseau)
+  delay: 5                    # 5 secondes entre chaque tentative
   until: trivy_download is succeeded
-  become: false
+  become: false              # Pas besoin de privilèges root pour télécharger
+  tags: trivy
 
-# Vérifier que le fichier existe
-- name:  Vérifier existence du fichier
+# Vérifier que le téléchargement s'est bien passé
+# Cette vérification évite les erreurs si le fichier est corrompu ou absent
+- name: Vérifier existence du fichier téléchargé
   stat:
     path: /tmp/trivy.tar.gz
   register: trivy_file
+  tags: trivy
 
-# Extraire seulement si le fichier est là
-- name:  Extraire Trivy
+# Extraire l'archive TAR.GZ dans /tmp
+# L'extraction ne se fait que si le fichier existe vraiment
+# -xzf : eXtract, gZip, File - options standard pour tar.gz
+- name: Extraire Trivy
   shell: tar -xzf /tmp/trivy.tar.gz -C /tmp/
   args:
-    executable: /bin/bash
-  when: trivy_file.stat.exists
+    executable: /bin/bash      # Utilise bash explicitement pour plus de fiabilité
+  when: trivy_file.stat.exists # Condition : seulement si le fichier existe
+  tags: trivy
 
-- name: 📂 Déplacer Trivy dans /usr/local/bin
+# Déplacer l'exécutable dans le PATH système
+# /usr/local/bin est l'emplacement standard pour les binaires installés manuellement
+# Mode 755 permet l'exécution par tous les utilisateurs
+- name: Déplacer Trivy dans /usr/local/bin
   copy:
-    src: "/tmp/trivy"
-    dest: "/usr/local/bin/trivy"
-    mode: '0755'
-    remote_src: yes
-    
-- name: ✅ Vérifier installation de Trivy
+    src: "/tmp/trivy"          # Source : fichier extrait dans /tmp
+    dest: "/usr/local/bin/trivy"  # Destination : répertoire dans le PATH
+    mode: '0755'               # Exécutable par tous
+    remote_src: yes            # Source sur la machine distante (pas locale Ansible)
+  become: yes                  # Privilèges root nécessaires pour écrire dans /usr/local/bin
+  tags: trivy
+
+# Vérifier que Trivy fonctionne correctement après installation
+# Cette commande confirme que l'installation s'est bien passée
+- name: Vérifier installation de Trivy
   command: trivy --version
   register: trivy_version
-  changed_when: false
+  changed_when: false          # Commande de lecture, pas de modification système
+  tags: trivy
 
-- name: 🖨️ Afficher version Trivy
+# Afficher la version installée pour traçabilité
+- name: Afficher version Trivy
   debug:
     var: trivy_version.stdout
+  tags: trivy
 
-
-- name: 🔍 Scanner Juice Shop avec Trivy (et écrire le rapport)
+# Scanner l'image Juice Shop et générer un rapport de vulnérabilités
+# Ce scan identifie toutes les vulnérabilités HIGH et CRITICAL dans l'image
+# IMPORTANT : Pas de commentaires inline dans la commande car cela casse la syntaxe shell
+- name: Scanner Juice Shop avec Trivy et générer rapport
   shell: |
-    echo ">>> Lancement Trivy" > /home/vagrant/trivy-report.txt
+    echo "=== RAPPORT TRIVY - ANALYSE VULNERABILITES JUICE SHOP ===" > /home/vagrant/trivy-report.txt
+    echo "Date du scan: $(date)" >> /home/vagrant/trivy-report.txt
+    echo "Image analysée: bkimminich/juice-shop" >> /home/vagrant/trivy-report.txt
+    echo "Seuil de gravité: HIGH,CRITICAL" >> /home/vagrant/trivy-report.txt
+    echo "" >> /home/vagrant/trivy-report.txt
+    
+    # Configuration du scan Trivy :
+    # --severity HIGH,CRITICAL : Seulement les vulnérabilités graves
+    # --format table : Format tableau lisible pour humains
+    # --no-progress : Pas de barre de progression dans le rapport
+    # --ignore-unfixed : Ignore les vulnérabilités sans correctif disponible
     /usr/local/bin/trivy image --severity HIGH,CRITICAL --format table --no-progress --ignore-unfixed bkimminich/juice-shop >> /home/vagrant/trivy-report.txt 2>&1
   args:
     executable: /bin/bash
-  changed_when: false
-  become: yes
+  changed_when: false            # Le scan ne modifie pas le système
+  become: yes                    # Nécessaire pour écrire dans /home/vagrant
+  tags: trivy
 
+# Afficher un résumé du scan pour info immédiate
+- name: Afficher résumé du scan Trivy
+  shell: |
+    echo "=== RÉSUMÉ DU SCAN TRIVY ==="
+    echo "Rapport complet disponible : /home/vagrant/trivy-report.txt"
+    echo ""
+    # Compter les vulnérabilités trouvées
+    critical_count=$(grep -c "CRITICAL" /home/vagrant/trivy-report.txt || echo "0")
+    high_count=$(grep -c "HIGH" /home/vagrant/trivy-report.txt || echo "0")
+    echo "Vulnérabilités CRITICAL trouvées : $critical_count"
+    echo "Vulnérabilités HIGH trouvées : $high_count"
+    echo ""
+    if [ "$critical_count" -gt 0 ] || [ "$high_count" -gt 0 ]; then
+      echo "⚠️  ATTENTION: Vulnérabilités détectées dans l'image Juice Shop"
+      echo "📋 Consulter le rapport détaillé pour les détails"
+    else
+      echo "✅ Aucune vulnérabilité HIGH/CRITICAL détectée"
+    fi
+  register: scan_summary
+  changed_when: false
+  tags: trivy
+
+- name: Rapport scan de vulnérabilités
+  debug:
+    msg: "{{ scan_summary.stdout_lines }}"
+  tags: trivy
