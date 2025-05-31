@@ -29,6 +29,16 @@ Découverte de multiples connexions réussies depuis 95.211.xxx.xxx avec accès 
 
 IoC documentés et transmis au RSSI : IP source, endpoints ciblés, timeline des requêtes.
 
+### Indicateurs de compromission (IoC)
+
+**Réseau :**
+- IP source : 95.211.xxx.xxx 
+- User-Agent automatisé confirmé dans les logs
+
+**Applicatif :**
+- Endpoints ciblés : `/rest/user/login`, `/api/Customers/export`
+- 2,847 enregistrements exfiltrés
+
 ---
 
 ## Containment
@@ -49,7 +59,7 @@ Scan Trivy du conteneur complété par une revue manuelle des endpoints exposés
 
 ## Recovery
 
-Restauration depuis le snapshot Vagrant quotidien du 28 mai (pré-testé). Tests fonctionnels complets : authentification, panier, API via Postman. Protection temporaire mise en place sur `/api/Customers/export`.
+Restauration depuis le snapshot Vagrant quotidien du 20 mai (pré-testé). Tests fonctionnels complets : authentification, panier, API via Postman. Protection temporaire mise en place sur `/api/Customers/export`.
 
 **Validation :** Aucun comportement anormal détecté.
 
@@ -65,6 +75,11 @@ DPO alerté et incident inscrit au registre. Déclaration CNIL préventive (Art.
 
 ## Bilan
 
+**Métriques d'incident :**
+- **MTTR :** 45 minutes 
+- **MTTD :** 2h15 (détection manuelle)
+- **Impact :** 3 développeurs, tests reportés de 2h
+
 **Points positifs :** La détection manuelle a bien fonctionné même sans alerting automatique. L'équipe a coordonné efficacement et on a appliqué la méthodologie NIST sans improviser. Impact limité au préprod uniquement.
 
 **Impact opérationnel :** 45 minutes d'arrêt préprod, les tests dev ont été reportés de 2h. Coût faible, aucune vraie donnée client touchée.
@@ -72,6 +87,26 @@ DPO alerté et incident inscrit au registre. Déclaration CNIL préventive (Art.
 **À améliorer :** Il faut accélérer le déploiement de la supervision centralisée. Le hardening post-déploiement doit être systématisé pour éviter ce genre d'oubli. Un minimum d'alerting sur les logs existants nous aurait aidés.
 
 Cette expérience montre qu'on peut s'appuyer sur le monitoring humain mais qu'une réponse bien structurée reste indispensable pour garder le contrôle.
+
+---
+
+## Analyse post-incident
+
+**Pourquoi c'est arrivé :** Les credentials par défaut n'ont pas été supprimés lors du déploiement - on n'avait pas de checklist de hardening systématique. L'équipe dev n'était pas au courant de cette vulnérabilité spécifique à Juice Shop.
+
+**Ce qui a bien marché :** La détection manuelle, même sans supervision automatique. L'équipe a suivi la méthodologie NIST et on a gardé le contrôle de bout en bout.
+
+**Ce qu'il faut corriger :** 
+- Checklist hardening obligatoire pour tous les déploiements
+- Formation de l'équipe dev sur les vulnérabilités courantes 
+- Accélérer la supervision centralisée pour éviter les détections tardives
+
+**Mesures préventives pour éviter ce type d'incident :**
+- **Automatisation du hardening :** Script post-déploiement qui supprime automatiquement les comptes par défaut de Juice Shop
+- **Tests de sécurité intégrés :** Ajouter dans la CI/CD un test qui vérifie qu'on ne peut plus se connecter avec admin/admin123
+- **Double validation :** Obligation pour dev ET ops de signer la checklist de déploiement avant mise en service
+- **Monitoring proactif :** Alertes automatiques sur les accès aux endpoints sensibles (/api/export, /admin)
+- **Politique "zero trust" :** Aucun déploiement sans validation sécurité préalable, même en préprod
 
 ---
 

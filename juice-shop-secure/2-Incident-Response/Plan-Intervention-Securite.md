@@ -22,6 +22,31 @@ Ce plan définit les procédures standardisées de réponse aux incidents de sé
 - **P2 (Élevée) :** Impact préprod, tentative d'intrusion
 - **P3 (Modérée) :** Activité suspecte sans impact immédiat
 
+### Matrice de décision et d'escalade
+
+| Niveau | Délai notification | Qui décide | Actions autorisées sans validation | Validation requise |
+|--------|-------------------|------------|-----------------------------------|-------------------|
+| **P3** | 2h | Analyste sécurité | - Analyse logs<br>- Collecte IoC<br>- Documentation | Aucune action technique |
+| **P2** | 30 min | Lead sécurité | - Blocage IP<br>- Invalidation sessions<br>- Monitoring renforcé | - Coupure service préprod<br>- Modification config |
+| **P1** | 15 min | RSSI + Direction | - Actions P2<br>- Coupure urgente<br>- Communication externe | - Coupure production<br>- Communication presse |
+
+### Responsabilités par niveau
+
+**P3 - Analyste sécurité :**
+- Missions : Détection, analyse initiale, documentation
+- Outils : Logs système, `grep`, `jq`, `awk`, Trivy
+- Limitations : Pas d'actions techniques sur les systèmes
+
+**P2 - Lead sécurité :**
+- Missions : Validation analyse, coordination technique, décisions d'isolation
+- Pouvoirs : Blocage IP, invalidation sessions, modifications préprod
+- Escalade : RSSI si impact client ou données sensibles
+
+**P1 - RSSI + Direction :**
+- Missions : Validation actions critiques, communication externe, aspects réglementaires
+- Pouvoirs : Toutes actions techniques, communication clients/partenaires
+- Support : DPO pour RGPD, juridique
+
 ### Procédure d'analyse
 
 1. **Collecte d'informations initiales**

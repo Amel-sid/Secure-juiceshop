@@ -1,19 +1,135 @@
+# ===================================================================
+# CONFIGURATION VAGRANT - INFRASTRUCTURE DE TEST SÉCURISÉE
+# ===================================================================
+#
+# Ce Vagrantfile configure une machine virtuelle Ubuntu pour tester
+# le déploiement sécurisé de Juice Shop avec Terraform et Ansible.
+#
+# OBJECTIF :
+# Créer un environnement de test isolé et reproductible qui simule
+# un serveur de production pour valider l'infrastructure sécurisée.
+#
+# ARCHITECTURE :
+# Host  -> Vagrant -> VM Ubuntu 24.04 -> Containers Docker
+
 Vagrant.configure("2") do |config|
+  # === CONFIGURATION DE BASE DE LA VM ===
+  
+  # Image Ubuntu 24.04 LTS officielle de Bento (Hashicorp)
+  # Bento est maintenu par Hashicorp et offre des images propres et à jour
+  # Ubuntu 24.04 LTS = support long terme jusqu'en 2029, plus sécurisé
   config.vm.box = "bento/ubuntu-24.04"
+  
+  # Nom d'hôte de la VM pour identification et logs
+  # "juice.sh" = nom court et mémorable pour l'environnement de test
   config.vm.hostname = "juice.sh"
+  
+  # === PARTAGE DE FICHIERS ===
+  
+  # Montage du répertoire des scripts Ansible dans la VM
+  # Permet à la VM d'accéder aux playbooks depuis l'hôte
+  # ../juice-shop-secure/secure-deploy = répertoire source sur l'hôte
+  # /vagrant/secure-deploy = point de montage dans la VM
   config.vm.synced_folder "../juice-shop-secure/secure-deploy", "/vagrant/secure-deploy"
+  
+  # === CONFIGURATION RÉSEAU ===
+  
+  # Redirection de port pour accès HTTPS depuis l'hôte
+  # guest: 443 = port HTTPS dans la VM (nginx reverse proxy)
+  # host: 4443 = port sur votre machine pour accéder à l'application
+  # Utilisation de 4443 pour éviter conflit avec d'autres services HTTPS locaux
   config.vm.network "forwarded_port", guest: 443, host: 4443
   
-  # Forcer l'utilisation de la clé insecure
+  # === CONFIGURATION SSH SÉCURISÉE ===
+  
+  # Configuration SSH spécifique pour l'environnement de test
+  # insert_key = false : garde la clé insecure par défaut de Vagrant
+  # Facilite les connexions multiples et la reproductibilité des tests
   config.ssh.insert_key = false
+  
+  # Utilisation explicite de la clé privée insecure de Vagrant
+  # Cette clé est publique et connue, donc JAMAIS en production
+  # Acceptable en environnement de test car VM isolée et temporaire
   config.ssh.private_key_path = ["~/.vagrant.d/insecure_private_key"]
   
+  # === PROVISIONING ANSIBLE (DÉSACTIVÉ) ===
+  
+  # Le provisioning Ansible est commenté car géré par Terraform
+  # CHOIX ARCHITECTURAL : Séparation des responsabilités
+  # - Vagrant = création et configuration de base de la VM
+  # - Terraform = orchestration du déploiement sécurisé
+  # - Ansible = configuration applicative et sécurisation
+  
   # config.vm.provision "ansible_local" do |ansible|
+  #   # Playbook principal qui orchestre tous les rôles de sécurisation
   #   ansible.playbook = "/vagrant/secure-deploy/ansible/site.yml"
+  #   
+  #   # Inventaire définissant les hôtes cibles (ici : local = la VM elle-même)
   #   ansible.inventory_path = "/vagrant/secure-deploy/ansible/inventory"
-  #   ansible.limit = "local"  # ← Force à utiliser seulement "local"
+  #   
+  #   # limit = "local" : exécute seulement sur l'hôte "local" défini dans l'inventaire
+  #   # Évite les erreurs si l'inventaire contient d'autres hôtes non accessibles
+  #   ansible.limit = "local"
+  #   
+  #   # Variables supplémentaires passées à Ansible
   #   ansible.extra_vars = {
-  #     ansible_become: true
+  #     ansible_become: true    # Active sudo pour les tâches nécessitant des privilèges root
   #   }
   # end
+  
+  # === RESSOURCES DE LA VM ===
+  
+  # Configuration par défaut de Vagrant pour bento/ubuntu-24.04 :
+  # - RAM : 1024 MB (suffisant pour Docker + applications)
+  # - CPU : 1 core (adéquat pour environnement de test)
+  # - Disk : 65 GB (large pour containers et logs)
+  
+  # Ces ressources peuvent être ajustées si nécessaire :
+  # config.vm.provider "virtualbox" do |vb|
+  #   vb.memory = "2048"      # 2GB RAM pour charges plus importantes
+  #   vb.cpus = 2            # 2 CPU cores pour meilleures performances
+  # end
+
 end
+
+# ===================================================================
+# UTILISATION DE CETTE CONFIGURATION
+# ===================================================================
+#
+# 1. Démarrage de la VM :
+#    vagrant up
+#
+# 2. Connexion SSH :
+#    vagrant ssh
+#
+# 3. Déploiement via Terraform (depuis l'hôte) :
+#    cd juice-shop-secure/terraform
+#    terraform apply -var="run_ansible=true"
+#
+# 4. Accès à l'application :
+#    https://localhost:4443 (accepter le certificat auto-signé)
+#
+# 5. Arrêt et nettoyage :
+#    vagrant halt    # Arrêt propre
+#    vagrant destroy # Suppression complète
+#
+# ===================================================================
+# SÉCURITÉ DE CETTE CONFIGURATION
+# ===================================================================
+#
+# POINTS POSITIFS :
+# - VM isolée du système hôte
+# - Ubuntu 24.04 LTS avec support sécurité étendu
+# - SSH configuré pour environnement de test
+# - Partage de fichiers en lecture seule par défaut
+#
+# LIMITATIONS (ACCEPTABLES EN TEST) :
+# - Clé SSH insecure (connue publiquement)
+# - Port forwarding sur localhost seulement
+# - VM temporaire et non persistante
+#
+# EN PRODUCTION, IL FAUDRAIT :
+# - Clés SSH uniques et sécurisées
+# - Configuration réseau plus restrictive
+# - Surveillance et logging avancés
+# - Sauvegarde et haute disponibilité
