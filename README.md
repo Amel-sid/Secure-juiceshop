@@ -10,7 +10,7 @@ Ce dépôt contient deux livrables principaux correspondant aux attentes du test
 * [🔒 Infrastructure sécurisée avec Terraform](./juice-shop-secure/terraform/)
 * [⚙️ Automatisation Ansible](./juice-shop-secure/secure-deploy/)
 * [✅ Script de validation automatique](./validate.sh)
-- [Compliance](./juice-shop-secure/docs/COMPLIANCE_MAPPING.md)
+- [📋 Compliance Mapping](./juice-shop-secure/docs/COMPLIANCE_MAPPING.md)
 
 ---
 
