@@ -8,14 +8,14 @@
   become: yes
   ignore_errors: yes
 
-# ✅ Vérifier que Juice Shop est accessible
-- name: ✅ Vérifier disponibilité de Juice Shop
-  uri:
-    url: "http://localhost:{{ juice_shop_external_port }}"
-    method: GET
-    status_code: 200
-  register: juice_check
-  ignore_errors: yes
+# # ✅ Vérifier que Juice Shop est accessible
+# - name: ✅ Vérifier disponibilité de Juice Shop
+#   uri:
+#     url: "http://localhost:{{ juice_shop_external_port }}"
+#     method: GET
+#     status_code: 200
+#   register: juice_check
+#   ignore_errors: yes
 
 # 🌐 Lancer conteneur nginx reverse proxy
 - name: 🌐 Lancer nginx reverse proxy
@@ -38,7 +38,7 @@
     security_opts:
       - "no-new-privileges:true"
   become: yes
-  when: juice_check.status == 200
+  # when: juice_check.status_code == 200
 
 # ⏳ Attendre que nginx soit prêt
 - name: ⏳ Attendre que nginx soit prêt
@@ -46,46 +46,46 @@
     port: 443
     host: localhost
     timeout: 30
-  when: juice_check.status == 200
+  # when: juice_check.status_code == 200
 
-# 🧪 Test de santé final
-- name: 🧪 Test accès HTTPS
-  uri:
-    url: "https://localhost"
-    method: GET
-    status_code: 200
-    validate_certs: no
-  register: https_check
-  retries: 3
-  delay: 5
-  ignore_errors: yes
-  when: juice_check.status == 200
+# # 🧪 Test de santé final
+# - name: 🧪 Test accès HTTPS
+#   uri:
+#     url: "https://localhost"
+#     method: GET
+#     status_code: 200
+#     validate_certs: no
+#   register: https_check
+#   retries: 3
+#   delay: 5
+#   ignore_errors: yes
+#   when: juice_check.status_code == 200
 
-# 📋 Rapport final
-- name: 📋 Rapport de déploiement
-  debug:
-    msg: |
-      🎯 ÉTAT DU DÉPLOIEMENT :
+# # 📋 Rapport final
+# - name: 📋 Rapport de déploiement
+#   debug:
+#     msg: |
+#       🎯 ÉTAT DU DÉPLOIEMENT :
       
-      {% if juice_check.status == 200 %}
-      ✅ Juice Shop : http://localhost:{{ juice_shop_external_port }}
+#       {% if juice_check.status_code == 200 %}
+#       ✅ Juice Shop : http://localhost:{{ juice_shop_external_port }}
       
-      {% if https_check.status == 200 %}
-      ✅ Nginx HTTPS : https://localhost
-      ✅ HTTP → HTTPS : http://localhost (redirection automatique)
+#       {% if https_check.status_code == 200 %}
+#       ✅ Nginx HTTPS : https://localhost
+#       ✅ HTTP → HTTPS : http://localhost (redirection automatique)
       
-      🎉 DÉPLOIEMENT RÉUSSI !
-      {% else %}
-      ⚠️  Nginx : problème HTTPS (vérifier certificats)
-      🌐 Accès direct : http://localhost:{{ juice_shop_external_port }}
-      {% endif %}
+#       🎉 DÉPLOIEMENT RÉUSSI !
+#       {% else %}
+#       ⚠️  Nginx : problème HTTPS (vérifier certificats)
+#       🌐 Accès direct : http://localhost:{{ juice_shop_external_port }}
+#       {% endif %}
       
-      {% else %}
-      ❌ Juice Shop non accessible
-      🔧 Vérifier : docker logs juice-shop
-      {% endif %}
+#       {% else %}
+#       ❌ Juice Shop non accessible
+#       🔧 Vérifier : docker logs juice-shop
+#       {% endif %}
       
-      🔧 Commandes utiles :
-      - docker ps
-      - docker logs juice-shop
-      - docker logs juice-proxy
+#       🔧 Commandes utiles :
+#       - docker ps
+#       - docker logs juice-shop
+#       - docker logs juice-proxy

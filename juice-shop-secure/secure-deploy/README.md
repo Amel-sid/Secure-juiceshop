@@ -1,4 +1,4 @@
-# 🛡️ Sécurisation OWASP Juice Shop – Environnement PaaS
+# 🛡️ Sécurisation OWASP Juice Shop
 
 ## 🎯 Objectif
 

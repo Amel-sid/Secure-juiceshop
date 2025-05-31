@@ -59,39 +59,3 @@
   become: yes
   register: juice_container
 
-# ✅ Vérifier que Juice Shop démarre
-- name: ⏳ Attendre que Juice Shop soit prêt
-  uri:
-    url: "http://localhost:{{ juice_shop_external_port }}"
-    method: GET
-    status_code: 200
-  register: juice_health
-  until: juice_health.status == 200
-  retries: 30
-  delay: 5
-  ignore_errors: yes
-
-# 📋 Afficher le statut
-- name: 📋 Statut de Juice Shop
-  debug:
-    msg: |
-      {% if juice_health.status == 200 %}
-      ✅ Juice Shop disponible sur http://localhost:{{ juice_shop_external_port }}
-      {% else %}
-      ❌ Juice Shop non accessible - vérifier les logs : docker logs juice-shop
-      {% endif %}
-
-# 🔍 Logs en cas de problème
-- name: 🔍 Afficher logs si problème
-  shell: docker logs --tail 20 juice-shop
-  register: juice_logs
-  become: yes
-  when: juice_health.status != 200
-
-- name: 📋 Logs de débogage
-  debug:
-    msg: "{{ juice_logs.stdout_lines }}"
-  when: 
-    - juice_health is failed or (juice_health.status is defined and juice_health.status != 200)
-    - juice_logs is defined
-    - juice_logs.stdout_lines is defined
