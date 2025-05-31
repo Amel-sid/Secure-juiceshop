@@ -15,6 +15,12 @@ RED='\033[0;31m'    # Rouge pour les échecs
 YELLOW='\033[1;33m' # Jaune pour les avertissements
 NC='\033[0m'        # Pas de couleur
 
+# Variables pour compter les tests
+TOTAL_TESTS=13
+PASSED_TESTS=0
+FAILED_TESTS=0
+WARNING_TESTS=0
+
 # Fonctions utilitaires pour afficher les résultats des tests
 test_step() {
     echo -n "Testing $1... "
@@ -22,14 +28,17 @@ test_step() {
 
 test_success() {
     echo -e "${GREEN}✅ PASS${NC}"
+    ((PASSED_TESTS++))
 }
 
 test_fail() {
     echo -e "${RED}❌ FAIL${NC}"
+    ((FAILED_TESTS++))
 }
 
 test_warning() {
     echo -e "${YELLOW}⚠️  WARNING${NC}"
+    ((WARNING_TESTS++))
 }
 
 echo "📋 Step 1: Infrastructure Validation"
@@ -113,6 +122,8 @@ if [ "$SSH_OK" = true ]; then
     fi
 else
     echo "⚠️  Skipping security tests - SSH not available"
+    # On compte ces tests comme échoués si SSH ne marche pas
+    ((FAILED_TESTS+=4))
 fi
 
 echo ""
@@ -146,6 +157,7 @@ if [ "$SSH_OK" = true ]; then
     fi
 else
     echo "⚠️  Skipping container tests - SSH not available"
+    ((FAILED_TESTS+=2))
 fi
 
 echo ""
@@ -199,10 +211,8 @@ if [ "$SSH_OK" = true ]; then
             test_warning
         fi
     fi
-fi
 
-# Test 13: SSH doit être durci contre les attaques
-if [ "$SSH_OK" = true ]; then
+    # Test 13: SSH doit être durci contre les attaques
     test_step "SSH hardening"
     cd vagrant
     SSH_CONFIG=$(vagrant ssh -c "sudo sshd -T" 2>/dev/null)
@@ -212,29 +222,34 @@ if [ "$SSH_OK" = true ]; then
     else
         test_warning
     fi
+else
+    echo "⚠️  Skipping compliance tests - SSH not available"
+    ((FAILED_TESTS+=2))
 fi
 
 echo ""
 echo "🎯 VALIDATION SUMMARY"
 echo "===================="
 
-# On calcule le score de sécurité en fonction des tests critiques
-TOTAL_TESTS=13
-PASSED_TESTS=0
+# Calcul du score final basé sur tous les tests
+SECURITY_SCORE=$(( (PASSED_TESTS * 100) / TOTAL_TESTS ))
 
-if [ "$VM_RUNNING" = true ]; then ((PASSED_TESTS++)); fi
-if [ "$SSH_OK" = true ]; then ((PASSED_TESTS++)); fi
-if [ "$CONTAINER_RUNNING" = true ]; then ((PASSED_TESTS++)); fi
-if [ "$HTTPS_OK" = true ]; then ((PASSED_TESTS++)); fi
-
-# Score basé sur les 4 composants critiques
-SECURITY_SCORE=$((PASSED_TESTS * 100 / 4))
-
+echo "📊 Test Results:"
+echo "   ✅ Passed: $PASSED_TESTS/$TOTAL_TESTS"
+echo "   ❌ Failed: $FAILED_TESTS/$TOTAL_TESTS"
+echo "   ⚠️  Warnings: $WARNING_TESTS/$TOTAL_TESTS"
+echo ""
 echo "📈 Security Score: ${SECURITY_SCORE}%"
 echo ""
 
-# Résultat final : tout doit fonctionner pour valider le déploiement
-if [ "$VM_RUNNING" = true ] && [ "$SSH_OK" = true ] && [ "$CONTAINER_RUNNING" = true ] && [ "$HTTPS_OK" = true ]; then
+# Résultat final : critères critiques pour validation
+CRITICAL_PASSED=0
+if [ "$VM_RUNNING" = true ]; then ((CRITICAL_PASSED++)); fi
+if [ "$SSH_OK" = true ]; then ((CRITICAL_PASSED++)); fi
+if [ "$CONTAINER_RUNNING" = true ]; then ((CRITICAL_PASSED++)); fi
+if [ "$HTTPS_OK" = true ]; then ((CRITICAL_PASSED++)); fi
+
+if [ $CRITICAL_PASSED -eq 4 ] && [ $SECURITY_SCORE -ge 85 ]; then
     echo -e "${GREEN}🎉 DEPLOYMENT VALIDATION: SUCCESS${NC}"
     echo -e "${GREEN}✅ Infrastructure is secure and operational${NC}"
     echo -e "${GREEN}✅ ISO 27001 compliance verified${NC}"
