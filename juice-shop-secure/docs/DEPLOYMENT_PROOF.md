@@ -20,15 +20,15 @@
 - Vagrant 2.3+ + VirtualBox 7.0+
 - Terraform 1.0+
 
-### Cloner le projet
+### Clone the project 
 ```bash
 git clone git@github.com:Amel-sid/test-scalingo.git
 cd test-scalingo
 ```
 
-## ⚙️ Configuration Terraform obligatoire
+## ⚙️ Mandatory Terraform Configuration
 
-### Variables critiques
+### Critical Variables
 Le fichier `terraform.tfvars` contient les variables **essentielles** au déploiement :
 
 ```bash
@@ -53,6 +53,9 @@ cd juice-shop-secure/terraform && terraform apply -var="run_ansible=true"  # Dep
 ![Security Validation Results](screenshots/validate.png)
 
 **Secure Access:** https://localhost:4443
+
+![juice shop](screenshots/site.png)
+
 
 ---
 
