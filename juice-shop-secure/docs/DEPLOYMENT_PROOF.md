@@ -28,6 +28,8 @@ Le fichier `terraform.tfvars` contient les variables **essentielles** au déploi
 ```bash
 cd juice-shop-secure/terraform/
 cp terraform.tfvars.example terraform.tfvars
+```
+
 
 ### Two-Command Deployment
 ```bash
