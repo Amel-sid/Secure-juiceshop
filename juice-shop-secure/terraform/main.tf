@@ -242,7 +242,7 @@ resource "null_resource" "final_validation" {
   count = var.run_ansible && var.enable_security_validation ? 1 : 0
 
   provisioner "local-exec" {
-    command = "cd /home/amel/juice-shop-push && ./validate.sh"
+    command ="cd ${path.cwd}/../.. && ./validate.sh"
   }
 
   triggers = {
