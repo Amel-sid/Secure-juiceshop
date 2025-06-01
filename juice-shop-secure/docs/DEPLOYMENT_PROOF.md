@@ -15,10 +15,16 @@
 
 ## 🚀 Quick Start
 
+
 ### Prerequisites
 - Vagrant 2.3+ + VirtualBox 7.0+
 - Terraform 1.0+
 
+### Cloner le projet
+```bash
+git clone git@github.com:Amel-sid/test-scalingo.git
+cd test-scalingo
+```
 
 ## ⚙️ Configuration Terraform obligatoire
 
@@ -33,6 +39,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### Two-Command Deployment
 ```bash
+cd vagrant
 vagrant up                                                    # Provision VM
 cd juice-shop-secure/terraform && terraform apply -var="run_ansible=true"  # Deploy security
 ```
