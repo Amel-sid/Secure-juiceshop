@@ -19,6 +19,16 @@
 - Vagrant 2.3+ + VirtualBox 7.0+
 - Terraform 1.0+
 
+
+## ⚙️ Configuration Terraform obligatoire
+
+### Variables critiques
+Le fichier `terraform.tfvars` contient les variables **essentielles** au déploiement :
+
+```bash
+cd juice-shop-secure/terraform/
+cp terraform.tfvars.example terraform.tfvars
+
 ### Two-Command Deployment
 ```bash
 vagrant up                                                    # Provision VM
