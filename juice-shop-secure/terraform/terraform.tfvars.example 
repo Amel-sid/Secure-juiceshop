@@ -1,1 +1,39 @@
-ssh_key_path = "../.vagrant/machines/default/virtualbox/private_key"
+## 📂 Fichier terraform.tfvars.example à créer
+
+```bash
+# Dans juice-shop-secure/terraform/
+cat > terraform.tfvars.example << 'EOF'
+# ===================================================================
+# VARIABLES TERRAFORM - JUICE SHOP SÉCURISÉ
+# ===================================================================
+
+# Configuration Terraform pour Juice Shop Security Hardening
+
+# Exécution d'Ansible
+run_ansible = true         # OBLIGATOIRE : Active la sécurisation automatique
+force_ansible_run = false # Optionnel : Force ré-exécution si déjà déployé
+
+# Configuration SSH - Chemin vers la clé privée Vagrant
+# ATTENTION : Adaptez ce chemin selon votre système
+ssh_key_path = "~/.vagrant.d/insecure_private_key"
+
+# ===================================================================
+# INSTRUCTIONS D'UTILISATION :
+# 
+# 1. Copiez ce fichier :
+#    cp terraform.tfvars.example terraform.tfvars
+#
+# 2. Adaptez le chemin ssh_key_path pour votre système :
+#    - Linux/Mac : "~/.vagrant.d/insecure_private_key" 
+#    - Windows : "C:/Users/[username]/.vagrant.d/insecure_private_key"
+#
+# 3. Déployez avec :
+#    terraform apply -var="run_ansible=true"
+#
+# ===================================================================
+
+# Exemples d'utilisation :
+# terraform apply                                           # Infrastructure seule
+# terraform apply -var="run_ansible=true"                   # Déploiement complet (RECOMMANDÉ)
+# terraform apply -var="force_ansible_run=true"             # Force ré-exécution Ansible
+EOF
