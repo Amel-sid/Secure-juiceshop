@@ -25,6 +25,16 @@ Ce dépôt contient deux livrables principaux correspondant aux attentes du test
 
 
 ## 🚀 Démarrage rapide
+```bash
+git clone git@github.com:Amel-sid/test-scalingo.git
+cd test-scalingo
+```
+Le fichier `terraform.tfvars` contient les variables **essentielles** au déploiement :
+
+```bash
+cd juice-shop-secure/terraform/
+cp terraform.tfvars.example terraform.tfvars
+```
 
 ```bash
 # 1. Déployer l'infrastructure sécurisée
