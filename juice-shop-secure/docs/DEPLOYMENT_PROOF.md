@@ -106,26 +106,16 @@ curl -k https://localhost:4443 # ✅ HTTPS access only
 
 ---
 
-## 🔒 Security Measures Implemented
+## 📋 Conformité & Compliance
 
-### 10 Security Hardening Measures
-1. **SSH Access Management** (ISO A.9.4.2) - Key-based auth, fail2ban protection
-2. **Network Firewall UFW** (ISO A.13.1.1) - Port 3000 blocked, 80/443/22 allowed
-3. **Intrusion Prevention Fail2ban** (ISO A.9.4.2) - SSH brute-force protection
-4. **Mandatory Access Control AppArmor** (ISO A.12.6.2) - Process confinement
-5. **Container Security Hardening** (ISO A.9.2.3) - no-new-privileges, resource limits
-6. **Secure Docker Configuration** (ISO A.14.2.4) - GPG verification, security opts
-7. **Vulnerability Scanning Trivy** (ISO A.12.6.1) - Automated image scanning
-8. **Automated Security Updates** (ISO A.12.6.1) - Unattended upgrades
-9. **Advanced HTTPS Reverse Proxy** (ISO A.13.2.1) - TLS 1.2+, security headers
-10. **Orchestrated Security Deployment** (ISO A.12.1.1) - Infrastructure as Code
+**Mapping détaillé ISO 27001/HDS :** 📄 [Voir COMPLIANCE_MAPPING.md](COMPLIANCE_MAPPING.md)
 
-### HDS Compliance (5 articles covered)
-- **Article 4.1** - Physical and environmental security
-- **Article 4.2** - Access control and authentication
-- **Article 4.3** - Network security and segmentation
-- **Article 4.4** - System hardening and monitoring
-- **Article 4.5** - Incident detection and response
+- ✅ **18 contrôles ISO 27001** implémentés et documentés
+- ✅ **5 articles HDS** couverts avec preuves techniques
+
+
+
+
 
 ---
 
@@ -164,13 +154,6 @@ docker inspect juice-shop | grep -E "(SecurityOpt|Memory|CpuQuota)"
 - **Disk:** <2GB total footprint
 - **Response time:** <100ms HTTPS
 
-### Security Compliance Score
-```
-✅ Passed: 13/13 tests
-❌ Failed: 0/13 tests  
-⚠️  Warnings: 0/13 tests
-📈 Overall Score: 100%
-```
 
 ### Architecture Validation
 ![Docker Container Security Details](screenshots/docker-security-detail.png)
