@@ -39,6 +39,8 @@ Vagrant.configure("2") do |config|
   # host: 4443 = port sur votre machine pour accéder à l'application
   # Utilisation de 4443 pour éviter conflit avec d'autres services HTTPS locaux
   config.vm.network "forwarded_port", guest: 443, host: 4443
+  # Redirection de port SSH pour Terraform
+  config.vm.network "forwarded_port", guest: 22, host: 2222
   
   # === CONFIGURATION SSH SÉCURISÉE ===
   
