@@ -25,7 +25,7 @@
     force_kill: yes
   become: yes
   ignore_errors: yes  # Normal qu'il n'y ait rien à supprimer au premier déploiement
-  tags: nginx-proxy
+  tags: reverse_proxy
 
 # Vérifier que Juice Shop est accessible avant de déployer le proxy
 # COMMENTÉ car peut créer des dépendances circulaires dans l'ordre de déploiement
@@ -71,7 +71,7 @@
     
   become: yes
   # when: juice_check.status_code == 200  # COMMENTÉ pour éviter les dépendances
-  tags: nginx-proxy
+  tags: reverse_proxy
 
 # Attendre que nginx soit complètement démarré et écoute sur le port HTTPS
 # Timeout de 30 secondes car nginx démarre très rapidement
@@ -82,7 +82,7 @@
     host: localhost
     timeout: 30                  # 30 secondes max d'attente
   # when: juice_check.status_code == 200
-  tags: nginx-proxy
+  tags: reverse_proxy
 
 # Test de santé pour vérifier l'accès HTTPS final
 # COMMENTÉ car peut créer des échecs si les certificats auto-signés posent problème
@@ -123,4 +123,4 @@
       - docker logs juice-proxy
       - docker logs juice-shop
       ================================
-  tags: nginx-proxy
+  tags: reverse_proxy

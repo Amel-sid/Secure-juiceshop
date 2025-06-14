@@ -4,15 +4,13 @@
   become: yes
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    ssh_port: 2222
-    admin_ip: "0.0.0.0"  # Remplacez par votre IP réelle
-    docker_version: "5:24.0.7-1~ubuntu.24.04~noble"
-    juice_version: "v15.1.0"
-    
+    ssh_port: 22 # garder le port ssh de vagrant 
+    admin_ip: "127.0.0.1/32" # Localhost uniquement (à adapter selon environnement)
+    docker_version: "5:24.0.7-1~ubuntu.24.04~noble"    
     # Variables globales pour éviter la duplication
     juice_shop_network: juice_net
     juice_shop_image: bkimminich/juice-shop
-    juice_shop_version: "latest"  # Au lieu de v15.1.0
+    juice_shop_version: "v15.1.0"  # 
     juice_shop_external_port: "3000"
     juice_shop_internal_port: "3000"
     nginx_ssl_path: /opt/nginx-ssl
