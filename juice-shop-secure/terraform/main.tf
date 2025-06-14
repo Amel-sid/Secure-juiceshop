@@ -59,7 +59,7 @@ resource "null_resource" "vm_security_check" {
     user        = "vagrant"
     private_key = local.ssh_private_key
     host        = "127.0.0.1"
-    port        = local.ssh_port
+    port        = 2222
     timeout     = "2m"
   }
 
@@ -98,7 +98,7 @@ resource "null_resource" "ansible_setup" {
     user        = "vagrant"
     private_key = local.ssh_private_key
     host        = "127.0.0.1"
-    port        = local.ssh_port
+    port        = 2222
     timeout     = "5m"
   }
 
@@ -131,7 +131,7 @@ resource "null_resource" "ansible_validation" {
     user        = "vagrant"
     private_key = local.ssh_private_key
     host        = "127.0.0.1"
-    port        = local.ssh_port
+    port        = 2222
     timeout     = "5m"
   }
 
@@ -169,7 +169,7 @@ resource "null_resource" "secure_deployment" {
     user        = "vagrant"
     private_key = local.ssh_private_key
     host        = "127.0.0.1"
-    port        = local.ssh_port
+    port        = 2222
     timeout     = "20m"
   }
 
@@ -204,7 +204,7 @@ resource "null_resource" "security_validation" {
     user        = "vagrant"
     private_key = local.ssh_private_key
     host        = "127.0.0.1"
-    port        = local.ssh_port
+    port        = 2222
     timeout     = "5m"
   }
 

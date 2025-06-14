@@ -23,10 +23,10 @@ variable "ssh_key_path" {
 variable "ssh_port" {
   description = "Port SSH sécurisé (A.9.4.2)"
   type        = number
-  default     = 2222
+  default     = 22
   
   validation {
-    condition     = var.ssh_port > 1024 && var.ssh_port < 65535
+    condition     = var.ssh_port >= 22 && var.ssh_port < 65535 #changement de condition 
     error_message = "Port SSH doit être entre 1024 et 65535 pour sécurité."
   }
 }
@@ -34,7 +34,7 @@ variable "ssh_port" {
 variable "admin_ip" {
   description = "IP administrateur autorisée (A.13.1.1)"
   type        = string
-  default     = "0.0.0.0"
+  default     = "27.0.0.1"
   
   validation {
     condition     = can(regex("^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$", var.admin_ip))
