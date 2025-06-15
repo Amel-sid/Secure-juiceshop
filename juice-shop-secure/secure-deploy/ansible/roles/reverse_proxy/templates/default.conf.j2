@@ -21,10 +21,25 @@ server {
     return 301 https://$host$request_uri;
 }
 
+# Zone de limitation pour prévenir les attaques par déni de service
+limit_req_zone $binary_remote_addr zone=juice_limit:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=juice_strict:10m rate=2r/s;
+
+
+
+
 # BLOC HTTPS - Configuration principale sécurisée
 server {
     listen 443 ssl;              # Port HTTPS avec SSL/TLS activé
     server_name localhost;       # Nom de domaine pour ce serveur virtuel
+
+
+    # LOGS POUR FAIL2BAN
+    access_log /var/log/nginx/juice-access.log combined buffer=16k;
+    error_log /var/log/nginx/juice-error.log warn;
+
+    
+    
 
     # CONFIGURATION SSL/TLS SÉCURISÉE
     # Chemins vers les certificats générés par le rôle SSL précédent
@@ -77,6 +92,11 @@ server {
 
     # CONFIGURATION REVERSE PROXY PRINCIPALE
     location / {
+
+        # Limitation de taux globale
+        limit_req zone=juice_limit burst=20 nodelay;
+        limit_req_status 429;
+
         # Proxyfication vers le container Juice Shop
         # juice-shop:3000 résolu via le réseau Docker interne
         proxy_pass http://juice-shop:3000;
