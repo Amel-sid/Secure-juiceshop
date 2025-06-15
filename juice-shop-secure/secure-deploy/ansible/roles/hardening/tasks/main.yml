@@ -142,50 +142,14 @@
   block:
     # ----- SOUS-SECTION: Fail2Ban -----
     # Fail2ban protège contre les attaques par force brute en analysant les logs
-    - name: Installer et configurer Fail2Ban
-      block:
-        # Installation du package Fail2ban depuis les dépôts Ubuntu
-        - name: Installer Fail2Ban
-          apt:
-            name: fail2ban
-            state: present
-          tags: fail2ban
+    # ----- SOUS-SECTION: Fail2Ban -----
+# Installation seulement - Configuration dans rôle dédié fail2ban
+    - name: Installer Fail2Ban
+      apt:
+        name: fail2ban
+        state: present
+      tags: fail2ban
 
-        # Configuration spécifique pour la protection SSH
-        # Cette jail surveille /var/log/auth.log et bannit les IP suspectes
-        - name: Configurer jail SSH
-          copy:
-            dest: /etc/fail2ban/jail.d/sshd.conf
-            content: |
-              [sshd]
-              enabled = true                    # Active la protection SSH
-              port = 22                        # Port SSH à surveiller
-              filter = sshd                    # Filtre pour détecter les échecs SSH
-              logpath = /var/log/auth.log      # Fichier de log à analyser
-              maxretry = 3                     # 3 échecs max avant bannissement
-              bantime = 1h                     # Bannissement pendant 1 heure
-              findtime = 10m                   # Fenêtre de 10 minutes pour compter les échecs
-              ignoreip = 127.0.0.1/8 10.0.0.0/8 192.168.0.0/16  # IPs locales ignorées
-            mode: '0644'
-          notify: restart fail2ban
-          tags: fail2ban
-
-        # Configuration pour protéger nginx contre les attaques web
-        # Surveille les tentatives d'authentification échouées sur les services web
-        - name: Configurer jail Nginx
-          copy:
-            dest: /etc/fail2ban/jail.d/nginx.conf
-            content: |
-              [nginx-http-auth]
-              enabled = true                   # Active la protection web
-              port = http,https               # Ports web à protéger
-              logpath = /var/log/nginx/error.log  # Log des erreurs nginx
-              maxretry = 3                    # 3 tentatives max
-              bantime = 1h                    # Bannissement 1 heure
-              findtime = 10m                  # Fenêtre de 10 minutes
-            mode: '0644'
-          notify: restart fail2ban
-          tags: fail2ban
       
     # ----- SOUS-SECTION: AppArmor -----
     # AppArmor fournit un confinement obligatoire pour les applications
