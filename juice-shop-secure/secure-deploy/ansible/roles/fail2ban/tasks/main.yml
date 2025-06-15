@@ -1,92 +1,102 @@
-# ===================================================================
-# RÔLE FAIL2BAN - PROTECTION AUTOMATIQUE CONTRE LES INTRUSIONS
-# ===================================================================
-#
-# Fail2ban surveille les logs et bannit automatiquement les IP qui tentent
-# des attaques par force brute sur SSH ou sur l'application web.
-#
-# Principe simple : si quelqu'un échoue 3 fois à se connecter en SSH,
-# son IP est automatiquement bloquée pendant 10 minutes.
-#
-
-
 ---
-# Installer Fail2ban depuis les dépôts Ubuntu
-# Package standard qui fournit la protection anti-intrusion
-- name: Installer Fail2ban
-  apt:
-    name: fail2ban
-    state: present
-    update_cache: yes
+# ===================================================================
+# FAIL2BAN - PROTECTION ANTI-INTRUSION CENTRALISÉE
+# ===================================================================
+
+# Supprimer anciennes configurations pour éviter conflits
+- name: Nettoyer anciennes configurations Fail2ban
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/fail2ban/jail.d/sshd.conf
+    - /etc/fail2ban/jail.d/nginx.conf
+    - /etc/fail2ban/jail.d/ssh.local
+    - /etc/fail2ban/jail.d/nginx.local
   tags: fail2ban
 
-# Configurer la protection SSH
-# Cette config dit à Fail2ban de surveiller les tentatives de connexion SSH
-# Si 3 échecs en 5 minutes = bannissement IP pendant 10 minutes
-- name: Configurer Fail2ban pour SSH
+# Configuration centralisée et cohérente
+- name: Configuration Fail2ban unifiée
   copy:
-    dest: /etc/fail2ban/jail.d/ssh.local
+    dest: /etc/fail2ban/jail.d/devsecops-security.conf
     content: |
+      # ===================================================================
+      # CONFIGURATION FAIL2BAN 
+      # ===================================================================
+      
+      [DEFAULT]
+      # Paramètres globaux cohérents
+      bantime = 3600        # 1 heure - équilibre sécurité/usabilité
+      findtime = 600        # 10 minutes - fenêtre de détection
+      maxretry = 3          # 3 tentatives standard
+      ignoreip = 127.0.0.1/8 10.0.0.0/8 192.168.0.0/16
+      
+      # Protection SSH contre brute force
       [sshd]
-      enabled = true              # Active la protection SSH
-      port = ssh                  # Surveille le port SSH (22)
-      logpath = %(sshd_log)s     # Lit le fichier /var/log/auth.log
-      maxretry = 3               # 3 tentatives max avant ban
-      bantime = 600              # Ban pendant 10 minutes
-      findtime = 300             # Compte les échecs sur 5 minutes
-    mode: '0644'
-  notify: restart fail2ban
-  tags: fail2ban
-
-# Redémarrer Fail2ban pour appliquer la config SSH
-# Active aussi le service au démarrage du serveur
-- name: Redémarrer Fail2ban
-  service:
-    name: fail2ban
-    state: restarted
-    enabled: true
-  tags: fail2ban
-
-# Vérifier que Fail2ban protège bien SSH
-# Cette commande nous dit si la protection SSH est active
-- name: Vérifier la jail SSH dans Fail2ban
-  command: fail2ban-client status sshd
-  register: fail2ban_status
-  failed_when: "'No jail' in fail2ban_status.stdout"
-  changed_when: false
-  tags: fail2ban
-
-# Afficher l'état de la protection SSH
-# Montre combien d'IP sont bannies et les stats de protection
-- name: Afficher l'état de la jail SSH
-  debug:
-    var: fail2ban_status.stdout
-  tags: fail2ban
-
-# Ajouter la protection Nginx pour l'application web
-# Protège Juice Shop contre les bots malveillants et les scans
-- name: Jail Nginx pour protection anti-bots et authentification
-  copy:
-    dest: /etc/fail2ban/jail.d/nginx.local
-    content: |
-      # Protection contre les bots qui scannent l'application
+      enabled = true
+      port = ssh
+      logpath = %(sshd_log)s
+      filter = sshd
+      # Utilise paramètres DEFAULT
+      
+      # Protection Nginx - Authentification échouée
+      [nginx-http-auth]
+      enabled = true
+      port = http,https
+      logpath = /var/log/nginx/juice-error.log
+      filter = nginx-http-auth
+      maxretry = 5          # Plus tolérant pour utilisateurs légitimes
+      
+      # Protection Nginx - Bots malveillants
       [nginx-badbots]
       enabled = true
       port = http,https
-      logpath = /var/log/nginx/access.log
-      maxretry = 2               # 2 requêtes suspectes = ban
-      bantime = 86400            # Ban 24h pour les bots
-      findtime = 600             # Fenêtre de 10 minutes
+      logpath = /var/log/nginx/juice-access.log
+      filter = nginx-badbots
+      maxretry = 2          # Strict pour bots
+      bantime = 86400       # 24h pour bots persistants
       
-      # Protection contre les attaques sur les formulaires de login
-      [nginx-auth]
+      # Protection Nginx - Scans de vulnérabilités
+      [nginx-noscript]
       enabled = true
       port = http,https
-      logpath = /var/log/nginx/error.log
-      maxretry = 6               # 6 échecs de login = ban
-      bantime = 3600             # Ban 1h pour les attaques login
-      findtime = 600             # Fenêtre de 10 minutes
+      logpath = /var/log/nginx/juice-access.log
+      filter = nginx-noscript
+      maxretry = 2
+      bantime = 86400
     mode: '0644'
   notify: restart fail2ban
   tags: fail2ban
 
+# Activer et démarrer le service
+- name: Activer Fail2ban
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: true
+  tags: fail2ban
+
+# Vérification que la protection SSH fonctionne
+- name: Vérifier jail SSH active
+  command: fail2ban-client status sshd
+  register: fail2ban_ssh_status
+  failed_when: "'No jail' in fail2ban_ssh_status.stdout"
+  changed_when: false
+  tags: fail2ban
+
+# Rapport de protection
+- name: Rapport protection Fail2ban
+  debug:
+    msg: |
+      ================================
+      FAIL2BAN PROTECTION ACTIVE
+      ================================
+      SSH: {{ 'PROTÉGÉ' if 'Currently active' in fail2ban_ssh_status.stdout else 'INACTIF' }}
+      Configuration: /etc/fail2ban/jail.d/devsecops-security.conf
+      
+      Paramètres de protection:
+      - Bannissement: 1 heure (bots: 24h)
+      - Fenêtre détection: 10 minutes
+      - Tentatives max: 3 (web: 5, bots: 2)
+      ================================
+  tags: fail2ban
