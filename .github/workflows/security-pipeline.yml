@@ -36,5 +36,5 @@ jobs:
           echo "🚀 Initialisation de Terraform..."
           terraform init
           echo "✅ Validation de la syntaxe..."
-          terraform validate
+          terraform validate  #verifie la syntaxe
           echo "🎉 Terraform est prêt !"
