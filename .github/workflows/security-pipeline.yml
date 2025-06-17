@@ -9,3 +9,9 @@ jobs:
     steps:
       - name: "Récupérer mon code"
         uses: actions/checkout@v4
+      - name: "Vérifier que mes dossiers existent"
+        run: |
+          echo "🔍 Vérification de la structure..."
+          ls -la
+          echo "📁 Cherchons juice-shop-secure..."
+          ls juice-shop-secure/ || echo "❌ Pas trouvé !"
