@@ -29,3 +29,12 @@ jobs:
           echo "📁 Aller dans le dossier terraform:"
           cd juice-shop-secure/terraform/
           ls -la
+
+      - name: "Valider mon Terraform"
+        run: |
+          cd juice-shop-secure/terraform/
+          echo "🚀 Initialisation de Terraform..."
+          terraform init
+          echo "✅ Validation de la syntaxe..."
+          terraform validate
+          echo "🎉 Terraform est prêt !"
