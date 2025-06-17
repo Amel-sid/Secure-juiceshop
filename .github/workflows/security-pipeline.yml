@@ -1,0 +1,4 @@
+name: "My PipeLiNe TEST"
+on: 
+  push:
+    branches: [main]
