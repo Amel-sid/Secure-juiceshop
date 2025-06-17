@@ -2,3 +2,10 @@ name: "My PipeLiNe TEST"
 on: 
   push:
     branches: [main]
+
+jobs:
+  my-test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Récupérer mon code"
+        uses: actions/checkout@v4
