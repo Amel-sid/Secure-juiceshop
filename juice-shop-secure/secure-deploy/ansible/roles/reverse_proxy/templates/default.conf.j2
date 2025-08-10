@@ -30,8 +30,8 @@ limit_req_zone $binary_remote_addr zone=juice_strict:10m rate=2r/s;
 
 # BLOC HTTPS - Configuration principale sécurisée
 server {
-    listen 443 ssl;              # Port HTTPS avec SSL/TLS activé
-    server_name localhost;       # Nom de domaine pour ce serveur virtuel
+    listen 0.0.0.0:443 ssl;      # ← Changement 1
+    server_name _; 
 
 
     # LOGS POUR FAIL2BAN

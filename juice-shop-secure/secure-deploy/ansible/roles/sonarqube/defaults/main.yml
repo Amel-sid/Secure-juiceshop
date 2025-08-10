@@ -1,0 +1,5 @@
+sonarqube_db_name: "sonarqube"
+sonarqube_db_user: "sonar_user"
+sonarqube_db_password: "sonarqube_secure_2024!"
+# NOUVEAU : Variable pour désactiver bootstrap checks
+sonar_es_bootstrap_checks_disable: "true"

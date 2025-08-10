@@ -64,8 +64,8 @@
     restart_policy: unless-stopped  # Redémarre automatiquement si crash
     
     # Configuration réseau : on expose seulement le port nécessaire
-    published_ports:
-      - "{{ juice_shop_external_port }}:{{ juice_shop_internal_port }}"
+    # published_ports:
+    #   - "{{ juice_shop_external_port }}:{{ juice_shop_internal_port }}"
     networks:
       - name: "{{ juice_shop_network }}"
     
@@ -96,12 +96,12 @@
 
 # Attendre que l'application soit complètement démarrée
 # Juice Shop prend quelques secondes à initialiser après le démarrage du container
-- name: Attendre démarrage complet de Juice Shop
-  wait_for:
-    host: localhost
-    port: "{{ juice_shop_external_port }}"
-    timeout: 60             # Attendre maximum 1 minute
-  tags: juice-shop
+# - name: Attendre démarrage complet de Juice Shop
+#   wait_for:
+#     host: localhost
+#     port: "{{ juice_shop_external_port }}"
+#     timeout: 60             # Attendre maximum 1 minute
+#   tags: juice-shop
 
 # Vérifier que l'application répond correctement
 # Test basique pour s'assurer que Juice Shop est accessible

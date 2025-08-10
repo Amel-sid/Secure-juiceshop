@@ -18,6 +18,7 @@
   roles:
     - docker        # 1. Installation Docker
     - hardening     # 2. Durcissement AVANT les services
+    - sonarqube   
     - tools         # 3. Outils système
     - juice         # 4. Juice Shop (SANS nginx)
     - reverse_proxy # 5. Nginx (dépend de juice-shop)

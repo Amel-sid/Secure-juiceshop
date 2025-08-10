@@ -1,0 +1,20 @@
+# Configuration SonarQube sécurisée
+sonar.web.host=0.0.0.0
+sonar.web.port=9000
+sonar.web.context=/sonarqube
+
+# Base de données
+sonar.jdbc.url=jdbc:postgresql://sonarqube-db:5432/{{ sonarqube_db_name }}
+sonar.jdbc.username={{ sonarqube_db_user }}
+sonar.jdbc.password={{ sonarqube_db_password }}
+
+# Sécurité
+sonar.forceAuthentication=true
+sonar.security.realm=sonar
+
+# Performance
+sonar.log.level=INFO
+sonar.path.logs=/opt/sonarqube/logs
+sonar.path.data=/opt/sonarqube/data
+sonar.search.javaOpts=-Xms512m -Xmx512m
+sonar.web.javaOpts=-Xms512m -Xmx512m

@@ -59,7 +59,7 @@
     
     # Montage des fichiers de configuration et certificats
     volumes:
-      - "/tmp/nginx-juice.conf:/etc/nginx/conf.d/default.conf:ro"  # Config nginx (lecture seule)
+      - "/tmp/nginx-multi-app.conf:/etc/nginx/conf.d/default.conf:ro"  # Config nginx (lecture seule)
       - "{{ nginx_ssl_path }}:/etc/nginx/ssl:ro"                   # Certificats SSL (lecture seule)
       - "/var/log/nginx:/var/log/nginx"
 

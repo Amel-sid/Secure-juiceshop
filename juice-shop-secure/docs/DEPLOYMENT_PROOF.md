@@ -1,6 +1,6 @@
 # 🛡️ Infrastructure Hardening - Deployment Proof
 
-**Security Engineer Technical Test - Exercise 1 Deliverable**
+**Security Engineer Technical Project **
 
 ## 🎯 Assessment Compliance
 
@@ -22,8 +22,8 @@
 
 ### Clone the project 
 ```bash
-git clone git@github.com:Amel-sid/test-scalingo.git
-cd test-scalingo
+git clone git@github.com:Amel-sid/Secure-juiceshop.git
+cd Secure-juiceshop
 ```
 
 ## ⚙️ Mandatory Terraform Configuration

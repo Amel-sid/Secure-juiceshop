@@ -15,8 +15,6 @@ Le plan définit les procédures standardisées de réponse aux incidents de sé
 Le cas d'application démontre la mise en œuvre pratique de ces procédures sur un 
 incident de compromission via credentials par défaut (21 mai 2025, préproduction JuiceShop).
 
-L'advisory transforme cet incident technique en communication client professionnelle, 
-inspirée du format des Scalingo Security Bulletins.
 
 ## Cohérence du scénario
 

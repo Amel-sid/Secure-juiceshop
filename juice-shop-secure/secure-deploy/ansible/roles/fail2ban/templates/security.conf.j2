@@ -1,0 +1,37 @@
+[DEFAULT]
+bantime = {{ fail2ban_bantime | default('600') }}
+findtime = {{ fail2ban_findtime | default('300') }}
+maxretry = {{ fail2ban_maxretry | default('3') }}
+ignoreip = {{ fail2ban_ignoreip | default('127.0.0.1/8 10.0.0.0/8 192.168.0.0/16') }}
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+filter = sshd
+
+# Protection HTTP Auth (filtre standard Ubuntu)
+[nginx-http-auth]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/juice-error.log
+filter = nginx-http-auth
+maxretry = {{ fail2ban_nginx_maxretry | default('5') }}
+
+# Protection contre bots (utilise nginx-botsearch disponible)
+[nginx-botsearch]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/juice-access.log
+filter = nginx-botsearch
+maxretry = 2
+bantime = {{ fail2ban_bots_bantime | default('86400') }}
+
+# Protection requêtes malformées
+[nginx-bad-request]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/juice-access.log
+filter = nginx-bad-request
+maxretry = 2
+bantime = {{ fail2ban_bots_bantime | default('3600') }}

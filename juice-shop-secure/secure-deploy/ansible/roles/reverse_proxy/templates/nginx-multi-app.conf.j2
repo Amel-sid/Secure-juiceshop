@@ -1,0 +1,75 @@
+# Configuration nginx CORRIGÉE pour routing multi-apps
+server {
+    listen 80;
+    server_name _;
+    return 301 https://$host$request_uri\;
+}
+
+limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=sonarqube:10m rate=5r/s;
+
+server {
+    listen 0.0.0.0:443 ssl;
+    server_name _;
+    
+    access_log /var/log/nginx/apps-access.log combined buffer=16k;
+    error_log /var/log/nginx/apps-error.log warn;
+    
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    add_header Strict-Transport-Security "max-age=63072000; includeSubdomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self';" always;
+    
+    location ^~ /sonarqube/ {
+    proxy_pass http://sonarqube:9000/sonarqube/;  # IMPORTANT: /sonarqube/ à la fin
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+    
+    # Route sans slash final aussi
+    location /sonarqube {
+        return 301 /sonarqube/;
+    }
+    
+    # JUICE SHOP - Par défaut (APRÈS SonarQube)
+    location / {
+        limit_req zone=general burst=20 nodelay;
+        
+        proxy_pass http://juice-shop:3000\;
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Accept-Encoding "";
+        
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_redirect off;
+        proxy_buffering off;
+        
+        proxy_connect_timeout 90;
+        proxy_send_timeout 90;
+        proxy_read_timeout 90;
+        send_timeout 90;
+    }
+    
+    location ~ /\. {
+        deny all;
+        access_log off;
+    }
+}

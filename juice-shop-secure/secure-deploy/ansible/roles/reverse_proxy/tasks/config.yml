@@ -3,6 +3,6 @@
 - name: 📄 Déployer template nginx existant
   template:
     src: default.conf.j2
-    dest: /tmp/nginx-juice.conf
+    dest: /tmp/nginx-multi-app.conf
     mode: '0644'
   become: yes

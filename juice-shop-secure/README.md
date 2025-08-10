@@ -1,9 +1,9 @@
-# Scalingo Security Engineer Technical Test
+# Security Engineer Technical Project
 
 ## 🚀 Quick Start
 ```bash
-git clone git@github.com:Amel-sid/test-scalingo.git
-cd test-scalingo
+git clone git@github.com:Amel-sid/Secure-juiceshop.git
+cd Secure-juiceshop
 ```
 
 ## Résultats
@@ -14,7 +14,7 @@ cd test-scalingo
 ## Structure du projet
 ## 📁 Structure du projet
 
-**📦 test-scalingo/**
+**📦 Secure-juiceshop/**
 - `README.md` - Guide principal
 - **juice-shop-secure/** - Exercise 1: Infrastructure Hardening
  - `README.md` - Instructions déploiement

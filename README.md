@@ -1,6 +1,5 @@
-# Test technique – Security Engineer @Scalingo
+# Security Engineer Project
 
-Ce dépôt contient deux livrables principaux correspondant aux attentes du test :
 
 ---
 
@@ -26,8 +25,8 @@ Ce dépôt contient deux livrables principaux correspondant aux attentes du test
 
 ## 🚀 Démarrage rapide
 ```bash
-git clone git@github.com:Amel-sid/test-scalingo.git
-cd test-scalingo
+git clone git@github.com:Amel-sid/Secure-juiceshop.git
+cd Secure-juiceshop
 ```
 Le fichier `terraform.tfvars` contient les variables **essentielles** au déploiement :
 
