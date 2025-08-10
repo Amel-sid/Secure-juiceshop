@@ -19,9 +19,6 @@
 * [🔍 Procédures de réponse à incident](./juice-shop-secure/2-Incident-Response/)
 
 ---
-## IA Usage
-*  [Note de l'usage de l'ia](./juice-shop-secure/docs/AI_USAGE.md)
-
 
 ## 🚀 Démarrage rapide
 ```bash
